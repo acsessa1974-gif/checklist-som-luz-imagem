@@ -121,7 +121,6 @@ ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
 ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
 
 def carregar_logo():
-    # Procura na pasta do script e na pasta atual qualquer variação do nome da logo
     pasta_script = os.path.dirname(os.path.abspath(__file__))
     for pasta in [pasta_script, os.getcwd(), "."]:
         try:
@@ -340,7 +339,6 @@ def gerar_pdf_checklist(ev):
         alignment=1
     )
 
-    # Cabeçalho Corporativo com fundo escuro (#0f172a) para destacar a logomarca
     logo_path = carregar_logo()
     texto_empresa = Paragraph(
         "<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/>"
@@ -351,7 +349,6 @@ def gerar_pdf_checklist(ev):
     bloco_logo = Paragraph("<b>A.C.S.</b>", estilo_cab_empresa)
     if logo_path:
         try:
-            # Calcula proporção exata da imagem para não distorcer e suporta transparência (mask='auto')
             ir = ImageReader(logo_path)
             iw, ih = ir.getSize()
             larg_desejada = 85
@@ -395,7 +392,6 @@ def gerar_pdf_checklist(ev):
     elementos.append(t_info)
     elementos.append(Spacer(1, 10))
 
-    # Tabela de Itens com linha de observações ajustada para não partir
     cabecalho_tabela = [
         Paragraph("<b>CÓD.</b>", estilo_th),
         Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_th),
@@ -758,7 +754,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 3: RETORNO E CONFERÊNCIA
+# MÓDULO 3: RETORNO E CONFERÊNCIA (INICIA DESMARCADO)
 # =====================================================================
 elif menu == "RETORNO E CONFERÊNCIA":
     st.markdown('<div class="section-header">Recebimento e Conferência de Material Pós-Evento</div>', unsafe_allow_html=True)
@@ -773,7 +769,8 @@ elif menu == "RETORNO E CONFERÊNCIA":
         
         df_ret = pd.DataFrame(ev_atual["itens"])
         df_ret["Código"] = df_ret["Código"].astype(str).str.zfill(3)
-        df_ret["Validado"] = True
+        # Inicia com todas as caixas desmarcadas (False) para conferência individual obrigatória
+        df_ret["Validado"] = False
         df_ret["Laudo / Ocorrência"] = "Sem avarias"
 
         df_ret_editado = pd.DataFrame()
@@ -785,7 +782,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 use_container_width=True,
                 disabled=["Código", "Equipamento", "Qtd"],
                 column_config={
-                    "Validado": st.column_config.CheckboxColumn("CONFERIDO", default=True, width="small"),
+                    "Validado": st.column_config.CheckboxColumn("CONFERIDO", default=False, width="small"),
                     "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
                     "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
                     "Qtd": st.column_config.NumberColumn("QTD EXPEDIDA", width="small"),
@@ -803,7 +800,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
 
         if st.button("FINALIZAR CONFERÊNCIA E REINTEGRAR ESTOQUE", type="primary", use_container_width=True):
             if not all(df_ret_editado["Validado"]):
-                st.warning("Para encerrar a operação, todos os itens devem estar marcados na coluna 'CONFERIDO'.")
+                st.warning("Atenção: Para encerrar a operação, todos os equipamentos devem ser conferidos e marcados na coluna 'CONFERIDO'.")
             elif not conferente_volta:
                 st.error("Informe o responsável pela conferência de recebimento.")
             else:
@@ -857,7 +854,6 @@ elif menu == "EMISSÃO DE CHECKLIST":
             use_container_width=True
         )
 
-        # Pré-visualização na tela dos itens que constam neste PDF
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(f"**Itens registados neste Checklist ({len(ev_imp['itens'])} equipamentos):**")
         df_preview = pd.DataFrame(ev_imp["itens"])
