@@ -699,7 +699,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO A4 + BOTÃO SEGURO + TXT)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO NATIVA ESTABILIZADA + TXT)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
@@ -710,7 +710,7 @@ elif menu == "EMISSÃO DE CHECKLIST":
         ["CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
         horizontal=True
     )
-    st.caption("Instrução: Utilize o botão de impressão direta abaixo, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
+    st.caption("Instrução: Utilize o botão de impressão abaixo, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     if tipo_impressao == "CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO":
@@ -724,12 +724,16 @@ elif menu == "EMISSÃO DE CHECKLIST":
             
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                if st.button("🖨️ IMPRIMIR / GERAR PDF", use_container_width=True, type="secondary"):
-                    st.markdown("""
-                        <script>
-                            window.parent.print();
-                        </script>
-                    """, unsafe_allow_html=True)
+                # Utiliza link HTML puramente nativo simulando botão de impressão para evitar bloqueios de script do Streamlit Cloud
+                st.markdown("""
+                    <div style="margin-top: 0px;">
+                        <a href="javascript:window.print()" style="text-decoration: none;">
+                            <div style="width: 100%; background-color: #0d9488; color: white; text-align: center; padding: 0.6rem 1rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
+                                🖨️ IMPRIMIR / GERAR PDF
+                            </div>
+                        </a>
+                    </div>
+                """, unsafe_allow_html=True)
             with col_b2:
                 conteudo_txt = gerar_texto_checklist(ev_imp)
                 nome_arq_txt = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
@@ -805,12 +809,15 @@ elif menu == "EMISSÃO DE CHECKLIST":
             cat_filtro_imp = st.selectbox("Filtrar Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
         with col_imp2:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🖨️ IMPRIMIR / GERAR PDF", use_container_width=True, type="secondary"):
-                st.markdown("""
-                    <script>
-                        window.parent.print();
-                    </script>
-                """, unsafe_allow_html=True)
+            st.markdown("""
+                <div style="margin-top: 0px;">
+                    <a href="javascript:window.print()" style="text-decoration: none;">
+                        <div style="width: 100%; background-color: #0d9488; color: white; text-align: center; padding: 0.6rem 1rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
+                            🖨️ IMPRIMIR / GERAR PDF
+                        </div>
+                    </a>
+                </div>
+            """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("---")
@@ -923,7 +930,7 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
                         if senha_admin_hist != SENHA_EXCLUSAO:
                             st.error("Senha administrativa incorreta. Operação bloqueada.")
                         elif not indices_para_apagar:
-                            st.warning("Seleccione pelo menos um relatório na caixa acima para apagar.")
+                            st.warning("Selecione pelo menos um relatório na caixa acima para apagar.")
                         else:
                             df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
                             df_h_novo.to_excel(ARQUIVO_HISTORICO, index=False)
