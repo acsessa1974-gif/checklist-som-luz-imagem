@@ -263,11 +263,11 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
         df_hist = novo_reg
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
-def gerar_texto_romaneio(ev):
+def gerar_texto_checklist(ev):
     linhas = [
         "======================================================================",
         "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
-        "         RELATÓRIO DE EXPEDIÇÃO E SAÍDA DE EQUIPAMENTOS               ",
+        "         RELATÓRIO DE CHECKLIST E SAÍDA DE EQUIPAMENTOS               ",
         "======================================================================",
         f"DOCUMENTO Nº        : {ev['id']}",
         f"EVENTO / DESTINO    : {ev['evento']}",
@@ -363,7 +363,7 @@ with st.sidebar:
             "VISÃO GERAL DO ACERVO",
             "EXPEDIÇÃO (SAÍDA)",
             "RETORNO E CONFERÊNCIA",
-            "EMISSÃO DE ROMANEIO",
+            "EMISSÃO DE CHECKLIST",
             "CADASTRO DE MATERIAIS",
             "HISTÓRICO DE OPERAÇÕES"
         ]
@@ -383,7 +383,7 @@ st.markdown(f"""
 <div class="corporate-header">
     <div>
         <p class="corporate-title">A.C.S. — CONTROLE DE EQUIPAMENTOS E OPERAÇÕES</p>
-        <p class="corporate-subtitle">Gestão de Estoque Técnico, Expedição e Romaneio de Eventos</p>
+        <p class="corporate-subtitle">Gestão de Estoque Técnico, Expedição e Checklist de Eventos</p>
     </div>
     <div style="text-align: right; color: #94a3b8; font-size: 0.85rem;">
         DATA DO SISTEMA<br><strong style="color: #ffffff;">{datetime.now().strftime('%d/%m/%Y')}</strong>
@@ -521,7 +521,6 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 else:
                     st.session_state.carrinho_saida.pop(cod_item, None)
 
-    # Adiciona a coluna de saldo restante calculado dinamicamente em tempo real
     df_disp_saida["Saldo Restante"] = df_disp_saida["Disponível"] - df_disp_saida["Qtd Expedir"]
 
     st.data_editor(
@@ -541,7 +540,6 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         }
     )
 
-    # Monta resumo consolidado a partir do carrinho_saida
     itens_no_carrinho = []
     for cod_sel, qtd_sel in list(st.session_state.carrinho_saida.items()):
         linha_est = df_estoque[df_estoque["Código"] == cod_sel]
@@ -564,7 +562,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
             st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("CONFIRMAR EXPEDIÇÃO E GERAR ORDEM DE SAÍDA", type="primary", use_container_width=True):
+    if st.button("CONFIRMAR EXPEDIÇÃO E GERAR CHECKLIST", type="primary", use_container_width=True):
         if not nome_evento or not tecnico_resp:
             st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
         elif df_escolhidos.empty:
@@ -608,7 +606,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 
                 registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), "Saída técnica autorizada")
                 st.session_state.carrinho_saida = {}
-                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE ROMANEIO' para imprimir ou exportar em .TXT.")
+                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para imprimir ou exportar em .TXT.")
                 st.rerun()
 
 # =====================================================================
@@ -680,38 +678,48 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE ROMANEIO (IMPRESSÃO A4 + EXPORTAR TXT + EXCLUSÃO)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO A4 + BOTÃO IMPRIMIR + EXPORTAR TXT)
 # =====================================================================
-elif menu == "EMISSÃO DE ROMANEIO":
+elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
     st.markdown('<div class="section-header">Emissão e Exportação de Documentos Operacionais</div>', unsafe_allow_html=True)
     
     tipo_impressao = st.radio(
         "Selecione o documento desejado:",
-        ["ORDEM DE EXPEDIÇÃO / ROMANEIO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
+        ["CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
         horizontal=True
     )
-    st.caption("Instrução: Utilize o botão abaixo para baixar em formato Texto (.TXT) ou pressione Ctrl + P para imprimir em folha A4.")
+    st.caption("Instrução: Utilize o botão de impressão direta, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    if tipo_impressao == "ORDEM DE EXPEDIÇÃO / ROMANEIO DE EVENTO":
+    if tipo_impressao == "CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO":
         if not eventos_ativos:
             st.warning("Não existem relatórios de saída ativos no momento.")
         else:
             st.markdown('<div class="no-print">', unsafe_allow_html=True)
             opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
-            idx_imp = st.selectbox("Selecione o Relatório de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
+            idx_imp = st.selectbox("Selecione o Checklist de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
             ev_imp = eventos_ativos[idx_imp]
             
-            conteudo_txt = gerar_texto_romaneio(ev_imp)
-            nome_arq_txt = f"Saida_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
-            st.download_button(
-                label="EXPORTAR RELATÓRIO DE SAÍDA EM FORMATO TEXTO (.TXT)",
-                data=conteudo_txt.encode("utf-8"),
-                file_name=nome_arq_txt,
-                mime="text/plain",
-                type="primary"
-            )
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                # Botão de Impressão Direta por JavaScript via navegador
+                st.markdown("""
+                    <button onclick="window.print()" style="width: 100%; background-color: #0d9488; color: white; border: none; padding: 0.55rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
+                        🖨️ IMPRIMIR / GERAR PDF
+                    </button>
+                """, unsafe_allow_html=True)
+            with col_b2:
+                conteudo_txt = gerar_texto_checklist(ev_imp)
+                nome_arq_txt = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
+                st.download_button(
+                    label="📥 EXPORTAR EM FORMATO TEXTO (.TXT)",
+                    data=conteudo_txt.encode("utf-8"),
+                    file_name=nome_arq_txt,
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("---")
@@ -721,7 +729,7 @@ elif menu == "EMISSÃO DE ROMANEIO":
                     st.image(logo_path, width=120)
             with c_titulo:
                 st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
-                st.markdown("**ORDEM DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA DE EQUIPAMENTOS**")
+                st.markdown("**CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA DE EQUIPAMENTOS**")
                 st.markdown(f"**DOCUMENTO Nº:** `{ev_imp['id']}` &nbsp;|&nbsp; **DATA DE SAÍDA:** `{ev_imp['data_saida']}`")
             
             st.markdown(f"""
@@ -750,10 +758,10 @@ elif menu == "EMISSÃO DE ROMANEIO":
                 st.markdown("**CONFERÊNCIA DE RECEBIMENTO (BASE A.C.S.) — DATA: ___/___/___**")
 
             st.markdown('<div class="no-print"><br><hr>', unsafe_allow_html=True)
-            with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE RELATÓRIO DE SAÍDA (SENHA EXCLUSIVA)"):
+            with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
                 st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
                 senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
-                if st.button("APAGAR RELATÓRIO DE SAÍDA SELECIONADO"):
+                if st.button("APAGAR CHECKLIST SELECIONADO"):
                     if senha_del_romaneio == SENHA_EXCLUSAO:
                         for item in ev_imp["itens"]:
                             cod_i = str(item["Código"])
@@ -763,7 +771,7 @@ elif menu == "EMISSÃO DE ROMANEIO":
                         salvar_estoque(df_estoque)
                         eventos_ativos.pop(idx_imp)
                         salvar_eventos(eventos_ativos)
-                        st.success("Relatório de saída apagado e quantidades estornadas ao estoque com sucesso.")
+                        st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
                         st.rerun()
                     else:
                         st.error("Senha administrativa incorreta. Exclusão não autorizada.")
@@ -771,7 +779,16 @@ elif menu == "EMISSÃO DE ROMANEIO":
 
     else:
         st.markdown('<div class="no-print">', unsafe_allow_html=True)
-        cat_filtro_imp = st.selectbox("Filtrar Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
+        col_imp1, col_imp2 = st.columns([2, 1])
+        with col_imp1:
+            cat_filtro_imp = st.selectbox("Filtrar Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
+        with col_imp2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("""
+                <button onclick="window.print()" style="width: 100%; background-color: #0d9488; color: white; border: none; padding: 0.55rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
+                    🖨️ IMPRIMIR / GERAR PDF
+                </button>
+            """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("---")
@@ -782,7 +799,7 @@ elif menu == "EMISSÃO DE ROMANEIO":
         with c_titulo:
             st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
             st.markdown("**FORMULÁRIO DE REQUISIÇÃO E CONFERÊNCIA DE ACERVO**")
-            st.markdown("**EVENTO:** _______________________________________ &nbsp;|&nbsp; **DATA:** ___/___/2026")
+            st.markdown(f"**EVENTO:** _______________________________________ &nbsp;|&nbsp; **DATA:** {datetime.now().strftime('%d/%m/%Y')}")
         
         st.markdown("---")
         df_ficha = df_estoque.copy()
