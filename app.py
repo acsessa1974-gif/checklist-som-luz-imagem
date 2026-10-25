@@ -9,6 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.utils import ImageReader
 
 # Configuração da Página
 st.set_page_config(
@@ -120,17 +121,22 @@ ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
 ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
 
 def carregar_logo():
-    for nome in ["Logo.png", "logo.png", "LOGO.png", "logo.jpg", "Logo.jpg"]:
-        caminho = os.path.abspath(nome)
-        if os.path.exists(caminho):
-            return caminho
+    # Procura na pasta do script e na pasta atual qualquer variação do nome da logo
+    pasta_script = os.path.dirname(os.path.abspath(__file__))
+    for pasta in [pasta_script, os.getcwd(), "."]:
+        try:
+            for arq in os.listdir(pasta):
+                if arq.lower() in ["logo.png", "logo.jpg", "logo.jpeg"]:
+                    return os.path.join(pasta, arq)
+        except Exception:
+            pass
     return None
 
 def carregar_estoque():
     if os.path.exists(ARQUIVO_ESTOQUE):
         df = pd.read_excel(ARQUIVO_ESTOQUE)
         if "Estoque Total" in df.columns:
-            df["Código"] = df["Código"].astype(str)
+            df["Código"] = df["Código"].astype(str).str.zfill(3)
             return df
 
     dados_iniciais = [
@@ -204,7 +210,7 @@ def carregar_estoque():
     ]
 
     lista_estoque = [{
-        "Código": codigo,
+        "Código": str(codigo).zfill(3),
         "Categoria": cat,
         "Equipamento": nome,
         "Estoque Total": int(qtd),
@@ -267,6 +273,7 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
 def gerar_pdf_checklist(ev):
+    """Gera o PDF corporativo garantindo a exibição da logomarca em fundo escuro e linhas ajustadas."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -289,13 +296,13 @@ def gerar_pdf_checklist(ev):
         textColor=colors.HexColor('#0f172a'),
         alignment=1
     )
-    estilo_sub = ParagraphStyle(
-        'SubTitulo',
+    estilo_cab_empresa = ParagraphStyle(
+        'CabEmpresa',
         parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8,
-        leading=11,
-        textColor=colors.HexColor('#475569'),
+        fontName='Helvetica-Bold',
+        fontSize=11,
+        leading=14,
+        textColor=colors.white,
         alignment=0
     )
     estilo_info = ParagraphStyle(
@@ -333,28 +340,43 @@ def gerar_pdf_checklist(ev):
         alignment=1
     )
 
+    # Cabeçalho Corporativo com fundo escuro (#0f172a) para destacar a logomarca
     logo_path = carregar_logo()
-    tabela_cabecalho_dados = []
+    texto_empresa = Paragraph(
+        "<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/>"
+        "<font size=8 color='#94a3b8'>A.C.S. SOM, LUZ E IMAGEM — GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>",
+        estilo_cab_empresa
+    )
     
+    bloco_logo = Paragraph("<b>A.C.S.</b>", estilo_cab_empresa)
     if logo_path:
         try:
-            img = RLImage(logo_path, width=85, height=42)
-            img.hAlign = 'LEFT'
-            tabela_cabecalho_dados = [
-                [img, Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=7 color='#64748b'>SISTEMA DE GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>", estilo_sub)]
-            ]
+            # Calcula proporção exata da imagem para não distorcer e suporta transparência (mask='auto')
+            ir = ImageReader(logo_path)
+            iw, ih = ir.getSize()
+            larg_desejada = 85
+            alt_desejada = larg_desejada * (ih / float(iw))
+            if alt_desejada > 48:
+                alt_desejada = 48
+                larg_desejada = alt_desejada * (iw / float(ih))
+            bloco_logo = RLImage(logo_path, width=larg_desejada, height=alt_desejada, mask='auto')
+            bloco_logo.hAlign = 'CENTER'
         except Exception:
-            tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
-    else:
-        tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
+            pass
 
-    t_cab = Table(tabela_cabecalho_dados, colWidths=[95, 450])
+    t_cab = Table([[bloco_logo, texto_empresa]], colWidths=[105, 440])
     t_cab.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#0f172a')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LINEBELOW', (0,0), (-1,-1), 3, colors.HexColor('#0d9488')),
     ]))
     elementos.append(t_cab)
-    elementos.append(Spacer(1, 4))
+    elementos.append(Spacer(1, 10))
 
     elementos.append(Paragraph("<b>CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA</b>", estilo_titulo))
     elementos.append(Spacer(1, 8))
@@ -373,7 +395,7 @@ def gerar_pdf_checklist(ev):
     elementos.append(t_info)
     elementos.append(Spacer(1, 10))
 
-    # Tabela com todos os itens do evento (Garantindo que lista todos e exibe o cabeçalho completo)
+    # Tabela de Itens com linha de observações ajustada para não partir
     cabecalho_tabela = [
         Paragraph("<b>CÓD.</b>", estilo_th),
         Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_th),
@@ -385,35 +407,36 @@ def gerar_pdf_checklist(ev):
     
     dados_tabela = [cabecalho_tabela]
     for item in ev["itens"]:
+        cod_formatado = str(item['Código']).zfill(3)
         dados_tabela.append([
-            Paragraph(str(item['Código']), estilo_celula_bold),
+            Paragraph(cod_formatado, estilo_celula_bold),
             Paragraph(str(item['Equipamento']), estilo_celula),
             Paragraph(f"{item['Qtd']} un", estilo_celula_bold),
-            Paragraph("[   ]", estilo_celula_bold),
-            Paragraph("[   ]", estilo_celula_bold),
-            Paragraph("____________________", estilo_celula)
+            Paragraph("[ &nbsp; ]", estilo_celula_bold),
+            Paragraph("[ &nbsp; ]", estilo_celula_bold),
+            Paragraph("_______________", estilo_celula_bold)
         ])
 
-    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 105], repeatRows=1)
+    t_itens = Table(dados_tabela, colWidths=[45, 240, 45, 50, 55, 110], repeatRows=1)
     t_itens.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
     ]))
     elementos.append(t_itens)
-    elementos.append(Spacer(1, 15))
+    elementos.append(Spacer(1, 25))
 
     ass_dados = [
-        [Paragraph(f"____________________________________________________<br/><b>Responsável Técnico:</b> {ev['responsavel']}", estilo_celula),
-         Paragraph("____________________________________________________<br/><b>Conferência de Retorno (Galpão):</b> Data ___/___/_____", estilo_celula)]
+        [Paragraph(f"__________________________________________________<br/><b>Responsável Técnico:</b> {ev['responsavel']}", estilo_celula),
+         Paragraph("__________________________________________________<br/><b>Conferência de Retorno (Galpão):</b> Data ___/___/_____", estilo_celula)]
     ]
     t_ass = Table(ass_dados, colWidths=[272, 273])
     t_ass.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
-        ('TOPPADDING', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 15),
     ]))
     elementos.append(t_ass)
 
@@ -631,14 +654,14 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         df_disp_saida = df_disp_saida[df_disp_saida["Categoria"] == cat_saida]
 
     df_disp_saida = df_disp_saida.reset_index(drop=True)
-    df_disp_saida["Qtd Expedir"] = df_disp_saida["Código"].map(lambda c: st.session_state.carrinho_saida.get(str(c), 0))
+    df_disp_saida["Qtd Expedir"] = df_disp_saida["Código"].map(lambda c: st.session_state.carrinho_saida.get(str(c).zfill(3), 0))
 
     def atualizar_selecao_saida():
         mudancas = st.session_state.get("editor_expedicao_busca", {}).get("edited_rows", {})
         for idx_str, cols in mudancas.items():
             idx = int(idx_str)
             if idx < len(df_disp_saida) and "Qtd Expedir" in cols:
-                cod_item = str(df_disp_saida.iloc[idx]["Código"])
+                cod_item = str(df_disp_saida.iloc[idx]["Código"]).zfill(3)
                 nova_qtd = int(cols["Qtd Expedir"] or 0)
                 if nova_qtd > 0:
                     st.session_state.carrinho_saida[cod_item] = nova_qtd
@@ -666,10 +689,11 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
 
     itens_no_carrinho = []
     for cod_sel, qtd_sel in list(st.session_state.carrinho_saida.items()):
-        linha_est = df_estoque[df_estoque["Código"] == cod_sel]
+        cod_sel_pad = str(cod_sel).zfill(3)
+        linha_est = df_estoque[df_estoque["Código"] == cod_sel_pad]
         if not linha_est.empty and qtd_sel > 0:
             itens_no_carrinho.append({
-                "Código": cod_sel,
+                "Código": cod_sel_pad,
                 "Categoria": linha_est.iloc[0]["Categoria"],
                 "Equipamento": linha_est.iloc[0]["Equipamento"],
                 "Disponível": int(linha_est.iloc[0]["Disponível"]),
@@ -702,7 +726,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 lista_itens_evento = []
                 resumo_log = []
                 for _, row in df_escolhidos.iterrows():
-                    cod = str(row["Código"])
+                    cod = str(row["Código"]).zfill(3)
                     qtd_saindo = int(row["Qtd Expedir"])
                     nome_eq = row["Equipamento"]
                     
@@ -748,6 +772,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
         ev_atual = eventos_ativos[ev_selecionado_idx]
         
         df_ret = pd.DataFrame(ev_atual["itens"])
+        df_ret["Código"] = df_ret["Código"].astype(str).str.zfill(3)
         df_ret["Validado"] = True
         df_ret["Laudo / Ocorrência"] = "Sem avarias"
 
@@ -785,7 +810,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 resumo_volta = []
                 avarias_lista = []
                 for _, row in df_ret_editado.iterrows():
-                    cod = str(row["Código"])
+                    cod = str(row["Código"]).zfill(3)
                     qtd_v = int(row["Qtd"])
                     df_estoque.loc[df_estoque["Código"] == cod, "Disponível"] += qtd_v
                     df_estoque.loc[df_estoque["Código"] == cod, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod, "Em Uso"].values[0]) - qtd_v)
@@ -806,7 +831,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL COM LOGOMARCA)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
@@ -832,6 +857,13 @@ elif menu == "EMISSÃO DE CHECKLIST":
             use_container_width=True
         )
 
+        # Pré-visualização na tela dos itens que constam neste PDF
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"**Itens registados neste Checklist ({len(ev_imp['itens'])} equipamentos):**")
+        df_preview = pd.DataFrame(ev_imp["itens"])
+        df_preview["Código"] = df_preview["Código"].astype(str).str.zfill(3)
+        st.dataframe(df_preview, hide_index=True, use_container_width=True)
+
         st.markdown("<br><hr>", unsafe_allow_html=True)
         with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
             st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
@@ -839,7 +871,7 @@ elif menu == "EMISSÃO DE CHECKLIST":
             if st.button("APAGAR CHECKLIST SELECIONADO"):
                 if senha_del_romaneio == SENHA_EXCLUSAO:
                     for item in ev_imp["itens"]:
-                        cod_i = str(item["Código"])
+                        cod_i = str(item["Código"]).zfill(3)
                         qtd_i = int(item["Qtd"])
                         df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
                         df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
@@ -868,7 +900,7 @@ elif menu == "CADASTRO DE MATERIAIS":
         if st.form_submit_button("REGISTRAR EQUIPAMENTO NO ACERVO"):
             if n_cod and n_nome:
                 novo_df = pd.DataFrame([{
-                    "Código": n_cod.strip(),
+                    "Código": n_cod.strip().zfill(3),
                     "Categoria": n_cat,
                     "Equipamento": n_nome.strip().upper(),
                     "Estoque Total": int(n_qtd),
