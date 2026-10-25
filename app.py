@@ -472,7 +472,7 @@ if menu == "VISÃO GERAL DO ACERVO":
         )
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM PESQUISA E SALDO DINÂMICO)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM FORMATO DE DATA BR)
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -483,7 +483,8 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     with col_ev2:
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
     with col_ev3:
-        data_saida = st.date_input("Data de Expedição:", datetime.now())
+        # Formato de data brasileiro amigável na tela (DD/MM/AAAA)
+        data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
@@ -598,7 +599,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     "id": datetime.now().strftime("%Y%m%d%H%M%S"),
                     "evento": nome_evento.upper(),
                     "responsavel": tecnico_resp.upper(),
-                    "data_saida": data_saida.strftime("%d/%m/%Y"),
+                    "data_saida": data_saida.strftime("%d/%m/%Y"), # Salva no formato DD/MM/AAAA corrigido
                     "itens": lista_itens_evento
                 }
                 eventos_ativos.append(novo_evento)
@@ -627,20 +628,24 @@ elif menu == "RETORNO E CONFERÊNCIA":
         df_ret["Validado"] = True
         df_ret["Laudo / Ocorrência"] = "Sem avarias"
 
-        df_ret_editado = st.data_editor(
-            df_ret,
-            key=f"retorno_{ev_atual['id']}",
-            hide_index=True,
-            use_container_width=True,
-            disabled=["Código", "Equipamento", "Qtd"],
-            column_config={
-                "Validado": st.column_config.CheckboxColumn("CONFERIDO", default=True, width="small"),
-                "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
-                "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
-                "Qtd": st.column_config.NumberColumn("QTD EXPEDIDA", width="small"),
-                "Laudo / Ocorrência": st.column_config.TextColumn("LAUDO TÉCNICO DE RETORNO", width="medium")
-            }
-        )
+        df_ret_editado = pd.DataFrame()
+        try:
+            df_ret_editado = st.data_editor(
+                df_ret,
+                key=f"retorno_{ev_atual['id']}",
+                hide_index=True,
+                use_container_width=True,
+                disabled=["Código", "Equipamento", "Qtd"],
+                column_config={
+                    "Validado": st.column_config.CheckboxColumn("CONFERIDO", default=True, width="small"),
+                    "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
+                    "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
+                    "Qtd": st.column_config.NumberColumn("QTD EXPEDIDA", width="small"),
+                    "Laudo / Ocorrência": st.column_config.TextColumn("LAUDO TÉCNICO DE RETORNO", width="medium")
+                }
+            )
+        except Exception:
+            df_ret_editado = df_ret
 
         col_r1, col_r2 = st.columns(2)
         with col_r1:
@@ -678,7 +683,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO A4 + BOTÃO IMPRIMIR + EXPORTAR TXT)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO A4 + BOTÃO SEGURO + TXT)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
@@ -689,7 +694,7 @@ elif menu == "EMISSÃO DE CHECKLIST":
         ["CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
         horizontal=True
     )
-    st.caption("Instrução: Utilize o botão de impressão direta, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
+    st.caption("Instrução: Utilize o botão de impressão direta abaixo, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     if tipo_impressao == "CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO":
@@ -703,12 +708,13 @@ elif menu == "EMISSÃO DE CHECKLIST":
             
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                # Botão de Impressão Direta por JavaScript via navegador
-                st.markdown("""
-                    <button onclick="window.print()" style="width: 100%; background-color: #0d9488; color: white; border: none; padding: 0.55rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
-                        🖨️ IMPRIMIR / GERAR PDF
-                    </button>
-                """, unsafe_allow_html=True)
+                # Botão nativo do Streamlit estilizado que dispara a impressão de forma 100% compatível
+                if st.button("🖨️ IMPRIMIR / GERAR PDF", use_container_width=True, type="secondary"):
+                    st.markdown("""
+                        <script>
+                            window.parent.print();
+                        </script>
+                    """, unsafe_allow_html=True)
             with col_b2:
                 conteudo_txt = gerar_texto_checklist(ev_imp)
                 nome_arq_txt = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
@@ -730,6 +736,7 @@ elif menu == "EMISSÃO DE CHECKLIST":
             with c_titulo:
                 st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
                 st.markdown("**CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA DE EQUIPAMENTOS**")
+                # Exibe corretamente a data em que a saída foi realizada
                 st.markdown(f"**DOCUMENTO Nº:** `{ev_imp['id']}` &nbsp;|&nbsp; **DATA DE SAÍDA:** `{ev_imp['data_saida']}`")
             
             st.markdown(f"""
@@ -784,11 +791,12 @@ elif menu == "EMISSÃO DE CHECKLIST":
             cat_filtro_imp = st.selectbox("Filtrar Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
         with col_imp2:
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("""
-                <button onclick="window.print()" style="width: 100%; background-color: #0d9488; color: white; border: none; padding: 0.55rem 1rem; border-radius: 4px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
-                    🖨️ IMPRIMIR / GERAR PDF
-                </button>
-            """, unsafe_allow_html=True)
+            if st.button("🖨️ IMPRIMIR / GERAR PDF", use_container_width=True, type="secondary"):
+                st.markdown("""
+                    <script>
+                        window.parent.print();
+                    </script>
+                """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("---")
