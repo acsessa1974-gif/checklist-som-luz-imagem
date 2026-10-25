@@ -12,23 +12,26 @@ st.set_page_config(
 )
 
 # =====================================================================
+# CONFIGURAÇÃO DE SENHAS DO SISTEMA
+# =====================================================================
+SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
+SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios de saída
+
+# =====================================================================
 # ESTILIZAÇÃO CORPORATIVA (CSS)
 # =====================================================================
 st.markdown("""
 <style>
-    /* Ocultar elementos padrão do Streamlit para visual de software próprio */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* Ajustes gerais de espaçamento e tipografia */
     .main .block-container {
         padding-top: 1.5rem;
         padding-bottom: 2rem;
         max-width: 96%;
     }
     
-    /* Cabeçalho Institucional */
     .corporate-header {
         background-color: #0f172a;
         color: #f8fafc;
@@ -55,7 +58,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* Cartões de Indicadores (KPIs) */
     .kpi-card {
         background-color: #1e293b;
         border: 1px solid #334155;
@@ -80,7 +82,6 @@ st.markdown("""
         color: #2dd4bf;
     }
 
-    /* Títulos de Seção */
     .section-header {
         font-size: 1.1rem;
         font-weight: 600;
@@ -93,8 +94,7 @@ st.markdown("""
         margin-top: 0.5rem;
     }
 
-    /* Botões Corporativos */
-    .stButton > button {
+    .stButton > button, .stDownloadButton > button {
         border-radius: 4px;
         font-weight: 600;
         letter-spacing: 0.4px;
@@ -104,7 +104,6 @@ st.markdown("""
         transition: all 0.2s ease;
     }
 
-    /* Formatação exclusiva para Impressão em Folha A4 (Ctrl + P) */
     @media print {
         [data-testid="stSidebar"], 
         .no-print, 
@@ -112,7 +111,9 @@ st.markdown("""
         .stDownloadButton, 
         [data-testid="stFormSubmitButton"],
         .stRadio,
-        .stSelectbox {
+        .stSelectbox,
+        .stTextInput,
+        [data-testid="stExpander"] {
             display: none !important;
         }
         body, .main, .block-container {
@@ -121,11 +122,6 @@ st.markdown("""
             padding: 0 !important;
             margin: 0 !important;
             max-width: 100% !important;
-        }
-        .print-box {
-            border: 1px solid #000000 !important;
-            padding: 15px !important;
-            color: #000000 !important;
         }
     }
 </style>
@@ -148,6 +144,7 @@ def carregar_estoque():
     if os.path.exists(ARQUIVO_ESTOQUE):
         df = pd.read_excel(ARQUIVO_ESTOQUE)
         if "Estoque Total" in df.columns:
+            df["Código"] = df["Código"].astype(str)
             return df
 
     dados_iniciais = [
@@ -266,6 +263,58 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
         df_hist = novo_reg
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
+def gerar_texto_romaneio(ev):
+    """Gera o conteúdo formatado em texto (.txt) para exportação de saída de equipamentos."""
+    linhas = [
+        "======================================================================",
+        "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
+        "         RELATÓRIO DE EXPEDIÇÃO E SAÍDA DE EQUIPAMENTOS               ",
+        "======================================================================",
+        f"DOCUMENTO Nº        : {ev['id']}",
+        f"EVENTO / DESTINO    : {ev['evento']}",
+        f"RESPONSÁVEL TÉCNICO : {ev['responsavel']}",
+        f"DATA DE SAÍDA       : {ev['data_saida']}",
+        "----------------------------------------------------------------------",
+        f"{'CÓD.':<8} | {'QTD':<8} | {'ESPECIFICAÇÃO DO EQUIPAMENTO'}",
+        "----------------------------------------------------------------------"
+    ]
+    for item in ev["itens"]:
+        linhas.append(f"{str(item['Código']):<8} | {str(item['Qtd']) + ' un':<8} | {item['Equipamento']}")
+    
+    linhas.extend([
+        "----------------------------------------------------------------------",
+        f"TOTAL DE ITENS LISTADOS: {len(ev['itens'])}",
+        "",
+        "",
+        "_____________________________________________________",
+        f"ASSINATURA DO RESPONSÁVEL ({ev['responsavel']})",
+        "",
+        "",
+        "_____________________________________________________",
+        "CONFERÊNCIA DE RETORNO AO GALPÃO (DATA: ___/___/_____)",
+        "======================================================================"
+    ])
+    return "\n".join(linhas)
+
+def gerar_texto_historico(df_h):
+    """Gera arquivo .txt com todos os relatórios registrados no histórico."""
+    linhas = [
+        "======================================================================",
+        "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
+        "            RELATÓRIO GERAL DE MOVIMENTAÇÕES (HISTÓRICO)              ",
+        f"            EMITIDO EM: {datetime.now().strftime('%d/%m/%Y %H:%M')}                           ",
+        "======================================================================",
+        ""
+    ]
+    for idx, row in df_h.iterrows():
+        linhas.append(f"REGISTRO #{idx + 1} | DATA/HORA: {row['Data/Hora']} | OPERAÇÃO: {row['Operação']}")
+        linhas.append(f"EVENTO      : {row['Evento / Projeto']}")
+        linhas.append(f"RESPONSÁVEL : {row['Responsável Técnico']}")
+        linhas.append(f"MATERIAIS   : {row['Relação de Material']}")
+        linhas.append(f"OBSERVAÇÕES : {row['Observações Técnicas']}")
+        linhas.append("----------------------------------------------------------------------")
+    return "\n".join(linhas)
+
 # =====================================================================
 # AUTENTICAÇÃO CORPORATIVA
 # =====================================================================
@@ -273,6 +322,9 @@ logo_path = carregar_logo()
 
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
+
+if "carrinho_saida" not in st.session_state:
+    st.session_state.carrinho_saida = {}
 
 if not st.session_state.autenticado:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -287,7 +339,7 @@ if not st.session_state.autenticado:
             senha_digitada = st.text_input("Credencial de Acesso:", type="password")
             botao_login = st.form_submit_button("AUTENTICAR ACESSO", use_container_width=True)
             if botao_login:
-                if senha_digitada == "acs123":
+                if senha_digitada == SENHA_ACESSO:
                     st.session_state.autenticado = True
                     st.rerun()
                 else:
@@ -341,7 +393,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Linha de KPIs Executivos
 k1, k2, k3, k4 = st.columns(4)
 with k1:
     st.markdown(f"""
@@ -382,7 +433,7 @@ if menu == "VISÃO GERAL DO ACERVO":
     
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
-        busca = st.text_input("Pesquisar por descrição ou código:", placeholder="Digite o modelo, marca ou código...")
+        busca = st.text_input("Pesquisar equipamento por descrição ou código:", placeholder="Digite o modelo, marca ou código...")
     with c2:
         f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
     with c3:
@@ -423,7 +474,7 @@ if menu == "VISÃO GERAL DO ACERVO":
         )
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM PESQUISA RÁPIDA)
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -436,60 +487,99 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     with col_ev3:
         data_saida = st.date_input("Data de Expedição:", datetime.now())
 
-    st.markdown("<br>**SELEÇÃO DE QUANTIDADES POR SETOR TÉCNICO**", unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
-    abas = st.tabs(["SETOR DE ÁUDIO", "SETOR DE ILUMINAÇÃO", "INFORMÁTICA", "ACESSÓRIOS E CABOS"])
-    categorias_nomes = ["Áudio", "Luz", "Informática", "Acessórios"]
+    # Caixa de Pesquisa e Filtro de Setor combinados
+    col_busca_s, col_cat_s = st.columns([2, 1])
+    with col_busca_s:
+        busca_saida = st.text_input(
+            "Pesquisar equipamento para adicionar à saída:",
+            placeholder="Digite qualquer parte do nome ou código (ex: SM58, Line Array, XLR, Moving)..."
+        )
+    with col_cat_s:
+        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Luz", "Informática", "Acessórios"])
+
+    df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy()
     
-    tabelas_editadas = []
+    if busca_saida:
+        df_disp_saida = df_disp_saida[
+            df_disp_saida["Equipamento"].str.contains(busca_saida, case=False, na=False) |
+            df_disp_saida["Código"].str.contains(busca_saida, case=False, na=False)
+        ]
+    if cat_saida != "Todos os Setores":
+        df_disp_saida = df_disp_saida[df_disp_saida["Categoria"] == cat_saida]
 
-    for aba, cat in zip(abas, categorias_nomes):
-        with aba:
-            df_cat = df_estoque[(df_estoque["Categoria"] == cat) & (df_estoque["Disponível"] > 0)][
-                ["Código", "Equipamento", "Disponível"]
-            ].copy()
-            df_cat["Qtd Expedir"] = 0
-            
-            editado = st.data_editor(
-                df_cat,
-                key=f"editor_saida_{cat}",
-                hide_index=True,
-                use_container_width=True,
-                disabled=["Código", "Equipamento", "Disponível"],
-                column_config={
-                    "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
-                    "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
-                    "Disponível": st.column_config.NumberColumn("SALDO EM BASE", width="small"),
-                    "Qtd Expedir": st.column_config.NumberColumn("QUANTIDADE A EXPEDIR", min_value=0, step=1, width="medium")
-                }
-            )
-            tabelas_editadas.append(editado)
+    df_disp_saida = df_disp_saida.reset_index(drop=True)
+    df_disp_saida["Qtd Expedir"] = df_disp_saida["Código"].map(lambda c: st.session_state.carrinho_saida.get(str(c), 0))
 
-    df_selecao_total = pd.concat(tabelas_editadas, ignore_index=True)
-    itens_escolhidos = df_selecao_total[df_selecao_total["Qtd Expedir"] > 0]
+    def atualizar_selecao_saida():
+        mudancas = st.session_state.get("editor_expedicao_busca", {}).get("edited_rows", {})
+        for idx_str, cols in mudancas.items():
+            idx = int(idx_str)
+            if idx < len(df_disp_saida) and "Qtd Expedir" in cols:
+                cod_item = str(df_disp_saida.iloc[idx]["Código"])
+                nova_qtd = int(cols["Qtd Expedir"] or 0)
+                if nova_qtd > 0:
+                    st.session_state.carrinho_saida[cod_item] = nova_qtd
+                else:
+                    st.session_state.carrinho_saida.pop(cod_item, None)
 
-    if not itens_escolhidos.empty:
-        st.markdown("<div class='section-header'>Resumo dos Materiais Selecionados</div>", unsafe_allow_html=True)
-        st.dataframe(itens_escolhidos[["Código", "Equipamento", "Qtd Expedir"]], hide_index=True, use_container_width=True)
+    st.data_editor(
+        df_disp_saida,
+        key="editor_expedicao_busca",
+        on_change=atualizar_selecao_saida,
+        hide_index=True,
+        use_container_width=True,
+        disabled=["Código", "Categoria", "Equipamento", "Disponível"],
+        column_config={
+            "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
+            "Categoria": st.column_config.TextColumn("SETOR", width="small"),
+            "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
+            "Disponível": st.column_config.NumberColumn("SALDO EM BASE", width="small"),
+            "Qtd Expedir": st.column_config.NumberColumn("QUANTIDADE A EXPEDIR", min_value=0, step=1, width="medium")
+        }
+    )
+
+    # Monta resumo consolidado a partir do carrinho_saida
+    itens_no_carrinho = []
+    for cod_sel, qtd_sel in list(st.session_state.carrinho_saida.items()):
+        linha_est = df_estoque[df_estoque["Código"] == cod_sel]
+        if not linha_est.empty and qtd_sel > 0:
+            itens_no_carrinho.append({
+                "Código": cod_sel,
+                "Categoria": linha_est.iloc[0]["Categoria"],
+                "Equipamento": linha_est.iloc[0]["Equipamento"],
+                "Disponível": int(linha_est.iloc[0]["Disponível"]),
+                "Qtd Expedir": int(qtd_sel)
+            })
+
+    df_escolhidos = pd.DataFrame(itens_no_carrinho)
+
+    if not df_escolhidos.empty:
+        st.markdown("<div class='section-header'>Resumo dos Materiais Selecionados para o Evento</div>", unsafe_allow_html=True)
+        st.dataframe(df_escolhidos[["Código", "Categoria", "Equipamento", "Qtd Expedir"]], hide_index=True, use_container_width=True)
+        if st.button("LIMPAR SELEÇÃO DE MATERIAIS"):
+            st.session_state.carrinho_saida = {}
+            st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("CONFIRMAR EXPEDIÇÃO E GERAR ORDEM DE SAÍDA", type="primary", use_container_width=True):
         if not nome_evento or not tecnico_resp:
             st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
-        elif itens_escolhidos.empty:
-            st.error("Nenhum material selecionado. Informe a quantidade na coluna 'QUANTIDADE A EXPEDIR'.")
+        elif df_escolhidos.empty:
+            st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QUANTIDADE A EXPEDIR'.")
         else:
             erro_qtd = False
-            for _, row in itens_escolhidos.iterrows():
+            for _, row in df_escolhidos.iterrows():
                 if row["Qtd Expedir"] > row["Disponível"]:
-                    st.error(f"Saldo insuficiente para o item '{row['Equipamento']}' (Solicitado: {row['Qtd Expedir']} | Disponível: {row['Disponível']}).")
+                    st.error(f"Saldo insuficiente para '{row['Equipamento']}' (Solicitado: {row['Qtd Expedir']} | Disponível: {row['Disponível']}).")
                     erro_qtd = True
             
             if not erro_qtd:
                 lista_itens_evento = []
                 resumo_log = []
-                for _, row in itens_escolhidos.iterrows():
-                    cod = row["Código"]
+                for _, row in df_escolhidos.iterrows():
+                    cod = str(row["Código"])
                     qtd_saindo = int(row["Qtd Expedir"])
                     nome_eq = row["Equipamento"]
                     
@@ -516,7 +606,8 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 salvar_eventos(eventos_ativos)
                 
                 registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), "Saída técnica autorizada")
-                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse o módulo 'EMISSÃO DE ROMANEIO' para impressão.")
+                st.session_state.carrinho_saida = {}
+                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE ROMANEIO' para imprimir ou exportar em .TXT.")
                 st.rerun()
 
 # =====================================================================
@@ -567,7 +658,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 resumo_volta = []
                 avarias_lista = []
                 for _, row in df_ret_editado.iterrows():
-                    cod = row["Código"]
+                    cod = str(row["Código"])
                     qtd_v = int(row["Qtd"])
                     df_estoque.loc[df_estoque["Código"] == cod, "Disponível"] += qtd_v
                     df_estoque.loc[df_estoque["Código"] == cod, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod, "Em Uso"].values[0]) - qtd_v)
@@ -588,30 +679,40 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE ROMANEIO (IMPRESSÃO TÉCNICA A4)
+# MÓDULO 4: EMISSÃO DE ROMANEIO (IMPRESSÃO A4 + EXPORTAR TXT + EXCLUSÃO)
 # =====================================================================
 elif menu == "EMISSÃO DE ROMANEIO":
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Emissão de Documentos Operacionais (Formato A4)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Emissão e Exportação de Documentos Operacionais</div>', unsafe_allow_html=True)
     
     tipo_impressao = st.radio(
         "Selecione o documento desejado:",
         ["ORDEM DE EXPEDIÇÃO / ROMANEIO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
         horizontal=True
     )
-    st.caption("Instrução: Utilize o comando Ctrl + P do navegador para imprimir ou exportar como PDF. Os controles do sistema serão ocultados automaticamente na folha.")
+    st.caption("Instrução: Utilize o botão abaixo para baixar em formato Texto (.TXT) ou pressione Ctrl + P para imprimir em folha A4.")
     st.markdown("</div>", unsafe_allow_html=True)
 
     if tipo_impressao == "ORDEM DE EXPEDIÇÃO / ROMANEIO DE EVENTO":
         if not eventos_ativos:
-            st.warning("Não existem eventos ativos para emissão de Ordem de Expedição.")
+            st.warning("Não existem relatórios de saída ativos no momento.")
         else:
             st.markdown('<div class="no-print">', unsafe_allow_html=True)
-            opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']})" for ev in eventos_ativos]
-            idx_imp = st.selectbox("Selecione a Operação:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
-            st.markdown("</div>", unsafe_allow_html=True)
-            
+            opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
+            idx_imp = st.selectbox("Selecione o Relatório de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
             ev_imp = eventos_ativos[idx_imp]
+            
+            # Botão de Exportação em Formato Texto (.TXT)
+            conteudo_txt = gerar_texto_romaneio(ev_imp)
+            nome_arq_txt = f"Saida_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
+            st.download_button(
+                label="EXPORTAR RELATÓRIO DE SAÍDA EM FORMATO TEXTO (.TXT)",
+                data=conteudo_txt.encode("utf-8"),
+                file_name=nome_arq_txt,
+                mime="text/plain",
+                type="primary"
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("---")
             c_logo, c_titulo = st.columns([1, 4])
@@ -629,16 +730,14 @@ elif menu == "EMISSÃO DE ROMANEIO":
             """)
             st.markdown("---")
             
-            tabela_romaneio = []
-            for item in ev_imp["itens"]:
-                tabela_romaneio.append({
-                    "CÓD.": item["Código"],
-                    "ESPECIFICAÇÃO DO EQUIPAMENTO": item["Equipamento"],
-                    "QTD": f"{item['Qtd']} un",
-                    "SAÍDA": "[    ]",
-                    "RETORNO": "[    ]",
-                    "OBSERVAÇÕES TÉCNICAS": "________________________"
-                })
+            tabela_romaneio = [{
+                "CÓD.": item["Código"],
+                "ESPECIFICAÇÃO DO EQUIPAMENTO": item["Equipamento"],
+                "QTD": f"{item['Qtd']} un",
+                "SAÍDA": "[    ]",
+                "RETORNO": "[    ]",
+                "OBSERVAÇÕES TÉCNICAS": "________________________"
+            } for item in ev_imp["itens"]]
             st.table(pd.DataFrame(tabela_romaneio))
 
             st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -649,6 +748,27 @@ elif menu == "EMISSÃO DE ROMANEIO":
             with ca2:
                 st.markdown("_____________________________________________________")
                 st.markdown("**CONFERÊNCIA DE RECEBIMENTO (BASE A.C.S.) — DATA: ___/___/___**")
+
+            # Zona Administrativa para apagar relatório ativo com senha exclusiva
+            st.markdown('<div class="no-print"><br><hr>', unsafe_allow_html=True)
+            with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE RELATÓRIO DE SAÍDA (SENHA EXCLUSIVA)"):
+                st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
+                senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
+                if st.button("APAGAR RELATÓRIO DE SAÍDA SELECIONADO"):
+                    if senha_del_romaneio == SENHA_EXCLUSAO:
+                        for item in ev_imp["itens"]:
+                            cod_i = str(item["Código"])
+                            qtd_i = int(item["Qtd"])
+                            df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
+                            df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
+                        salvar_estoque(df_estoque)
+                        eventos_ativos.pop(idx_imp)
+                        salvar_eventos(eventos_ativos)
+                        st.success("Relatório de saída apagado e quantidades estornadas ao estoque com sucesso.")
+                        st.rerun()
+                    else:
+                        st.error("Senha administrativa incorreta. Exclusão não autorizada.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
     else:
         st.markdown('<div class="no-print">', unsafe_allow_html=True)
@@ -712,18 +832,72 @@ elif menu == "CADASTRO DE MATERIAIS":
                 st.error("Preencha o Código Patrimonial e a Descrição Técnica do equipamento.")
 
 # =====================================================================
-# MÓDULO 6: HISTÓRICO DE OPERAÇÕES
+# MÓDULO 6: HISTÓRICO DE OPERAÇÕES (EXPORTAR TXT + APAGAR COM SENHA)
 # =====================================================================
 elif menu == "HISTÓRICO DE OPERAÇÕES":
-    st.markdown('<div class="section-header">Auditoria e Histórico de Movimentações</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Auditoria e Histórico de Relatórios de Saída e Retorno</div>', unsafe_allow_html=True)
     if os.path.exists(ARQUIVO_HISTORICO):
         df_h = pd.read_excel(ARQUIVO_HISTORICO)
-        st.dataframe(df_h, hide_index=True, use_container_width=True)
-        with open(ARQUIVO_HISTORICO, "rb") as f:
-            st.download_button(
-                "EXPORTAR RELATÓRIO DE AUDITORIA (.XLSX)",
-                f,
-                file_name=f"auditoria_operacoes_acs_{datetime.now().strftime('%Y%m%d')}.xlsx"
-            )
+        if df_h.empty:
+            st.info("Não constam registros históricos de movimentação até o momento.")
+        else:
+            st.dataframe(df_h, hide_index=True, use_container_width=True)
+            
+            col_exp1, col_exp2 = st.columns(2)
+            with col_exp1:
+                txt_hist = gerar_texto_historico(df_h)
+                st.download_button(
+                    "EXPORTAR RELATÓRIOS EM FORMATO TEXTO (.TXT)",
+                    data=txt_hist.encode("utf-8"),
+                    file_name=f"relatorio_saidas_acs_{datetime.now().strftime('%Y%m%d')}.txt",
+                    mime="text/plain",
+                    type="primary",
+                    use_container_width=True
+                )
+            with col_exp2:
+                with open(ARQUIVO_HISTORICO, "rb") as f:
+                    st.download_button(
+                        "EXPORTAR RELATÓRIOS EM EXCEL (.XLSX)",
+                        f,
+                        file_name=f"auditoria_operacoes_acs_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                        use_container_width=True
+                    )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            with st.expander("ZONA ADMINISTRATIVA — APAGAR RELATÓRIOS DO HISTÓRICO (SENHA EXCLUSIVA)"):
+                st.markdown("Selecione abaixo os relatórios que deseja excluir permanentemente e informe a **Senha Administrativa de Exclusão**:")
+                
+                opcoes_hist = [
+                    f"#{i + 1} | {row['Data/Hora']} | {row['Operação']} - {row['Evento / Projeto']} ({row['Responsável Técnico']})"
+                    for i, row in df_h.iterrows()
+                ]
+                indices_para_apagar = st.multiselect(
+                    "Selecionar relatórios específicos para apagar (ou deixe em branco para usar o botão de limpar tudo):",
+                    options=list(range(len(opcoes_hist))),
+                    format_func=lambda i: opcoes_hist[i]
+                )
+                
+                senha_admin_hist = st.text_input("Senha Administrativa de Exclusão:", type="password", key="pwd_del_hist")
+                
+                col_del1, col_del2 = st.columns(2)
+                with col_del1:
+                    if st.button("APAGAR RELATÓRIOS SELECIONADOS", use_container_width=True):
+                        if senha_admin_hist != SENHA_EXCLUSAO:
+                            st.error("Senha administrativa incorreta. Operação bloqueada.")
+                        elif not indices_para_apagar:
+                            st.warning("Selecione pelo menos um relatório na caixa acima para apagar.")
+                        else:
+                            df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
+                            df_h_novo.to_excel(ARQUIVO_HISTORICO, index=False)
+                            st.success(f"{len(indices_para_apagar)} relatório(s) apagado(s) com sucesso!")
+                            st.rerun()
+                with col_del2:
+                    if st.button("APAGAR TODO O HISTÓRICO DE RELATÓRIOS", use_container_width=True):
+                        if senha_admin_hist != SENHA_EXCLUSAO:
+                            st.error("Senha administrativa incorreta. Operação bloqueada.")
+                        else:
+                            os.remove(ARQUIVO_HISTORICO)
+                            st.success("Todo o histórico de relatórios foi apagado permanentemente!")
+                            st.rerun()
     else:
         st.info("Não constam registros históricos de movimentação até o momento.")
