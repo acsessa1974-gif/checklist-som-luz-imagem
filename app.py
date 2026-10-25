@@ -128,10 +128,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# ARQUIVOS E BANCO DE DADOS
+# ARQUIVOS E BANCO DE DADOS (USANDO EXCEL PARA SEGURANÇA DOS DADOS)
 # =====================================================================
 ARQUIVO_ESTOQUE = "estoque_acs_quantidades.xlsx"
-ARQUIVO_EVENTOS = "eventos_ativos_acs.json"
+ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
 ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
 
 def carregar_logo():
@@ -236,15 +236,32 @@ def salvar_estoque(df):
 def carregar_eventos():
     if os.path.exists(ARQUIVO_EVENTOS):
         try:
-            with open(ARQUIVO_EVENTOS, "r", encoding="utf-8") as f:
-                return json.load(f)
+            df_ev = pd.read_excel(ARQUIVO_EVENTOS)
+            eventos = []
+            for _, row in df_ev.iterrows():
+                eventos.append({
+                    "id": str(row["ID"]),
+                    "evento": str(row["Evento"]),
+                    "responsavel": str(row["Responsável"]),
+                    "data_saida": str(row["Data Saída"]),
+                    "itens": json.loads(row["Itens JSON"])
+                })
+            return eventos
         except Exception:
             return []
     return []
 
 def salvar_eventos(eventos):
-    with open(ARQUIVO_EVENTOS, "w", encoding="utf-8") as f:
-        json.dump(eventos, f, ensure_ascii=False, indent=2)
+    dados_tabela = []
+    for ev in eventos:
+        dados_tabela.append({
+            "ID": ev["id"],
+            "Evento": ev["evento"],
+            "Responsável": ev["responsavel"],
+            "Data Saída": ev["data_saida"],
+            "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
+        })
+    pd.DataFrame(dados_tabela).to_excel(ARQUIVO_EVENTOS, index=False)
 
 def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-"):
     data_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
@@ -483,7 +500,6 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     with col_ev2:
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
     with col_ev3:
-        # Formato de data brasileiro amigável na tela (DD/MM/AAAA)
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
@@ -599,7 +615,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     "id": datetime.now().strftime("%Y%m%d%H%M%S"),
                     "evento": nome_evento.upper(),
                     "responsavel": tecnico_resp.upper(),
-                    "data_saida": data_saida.strftime("%d/%m/%Y"), # Salva no formato DD/MM/AAAA corrigido
+                    "data_saida": data_saida.strftime("%d/%m/%Y"),
                     "itens": lista_itens_evento
                 }
                 eventos_ativos.append(novo_evento)
@@ -708,7 +724,6 @@ elif menu == "EMISSÃO DE CHECKLIST":
             
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                # Botão nativo do Streamlit estilizado que dispara a impressão de forma 100% compatível
                 if st.button("🖨️ IMPRIMIR / GERAR PDF", use_container_width=True, type="secondary"):
                     st.markdown("""
                         <script>
@@ -736,7 +751,6 @@ elif menu == "EMISSÃO DE CHECKLIST":
             with c_titulo:
                 st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
                 st.markdown("**CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA DE EQUIPAMENTOS**")
-                # Exibe corretamente a data em que a saída foi realizada
                 st.markdown(f"**DOCUMENTO Nº:** `{ev_imp['id']}` &nbsp;|&nbsp; **DATA DE SAÍDA:** `{ev_imp['data_saida']}`")
             
             st.markdown(f"""
@@ -909,7 +923,7 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
                         if senha_admin_hist != SENHA_EXCLUSAO:
                             st.error("Senha administrativa incorreta. Operação bloqueada.")
                         elif not indices_para_apagar:
-                            st.warning("Selecione pelo menos um relatório na caixa acima para apagar.")
+                            st.warning("Seleccione pelo menos um relatório na caixa acima para apagar.")
                         else:
                             df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
                             df_h_novo.to_excel(ARQUIVO_HISTORICO, index=False)
