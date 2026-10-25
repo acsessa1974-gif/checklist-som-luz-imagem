@@ -212,11 +212,11 @@ def carregar_estoque():
     } for codigo, nome, qtd, cat in dados_iniciais]
 
     df_inicial = pd.DataFrame(lista_estoque)
-    df_inicial.to_excel(ARQUIVO_INVENTARIO, index=False)
+    df_inicial.to_excel(ARQUIVO_ESTOQUE, index=False)
     return df_inicial
 
 def salvar_estoque(df):
-    df.to_excel(ARQUIVO_INVENTARIO, index=False)
+    df.to_excel(ARQUIVO_ESTOQUE, index=False)
 
 def carregar_eventos():
     if os.path.exists(ARQUIVO_EVENTOS):
@@ -266,7 +266,6 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
 def gerar_pdf_checklist(ev):
-    """Gera um arquivo PDF profissional utilizando ReportLab com logomarca e layout corporativo."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -280,7 +279,6 @@ def gerar_pdf_checklist(ev):
     elementos = []
     styles = getSampleStyleSheet()
     
-    # Estilos personalizados
     estilo_titulo = ParagraphStyle(
         'TituloDoc',
         parent=styles['Normal'],
@@ -288,7 +286,7 @@ def gerar_pdf_checklist(ev):
         fontSize=13,
         leading=16,
         textColor=colors.HexColor('#0f172a'),
-        alignment=1 # Centralizado
+        alignment=1
     )
     estilo_sub = ParagraphStyle(
         'SubTitulo',
@@ -325,7 +323,6 @@ def gerar_pdf_checklist(ev):
         alignment=1
     )
 
-    # Cabeçalho com Logomarca e Título
     logo_file = carregar_logo()
     tabela_cabecalho_dados = []
     
@@ -349,11 +346,9 @@ def gerar_pdf_checklist(ev):
     elementos.append(t_cab)
     elementos.append(Spacer(1, 5))
 
-    # Título do Documento
     elementos.append(Paragraph("<b>CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA</b>", estilo_titulo))
     elementos.append(Spacer(1, 10))
 
-    # Detalhes do Evento
     info_dados = [
         [Paragraph(f"<b>Documento Nº:</b> {ev['id']}", estilo_info), Paragraph(f"<b>Data de Saída:</b> {ev['data_saida']}", estilo_info)],
         [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)]
@@ -368,7 +363,6 @@ def gerar_pdf_checklist(ev):
     elementos.append(t_info)
     elementos.append(Spacer(1, 15))
 
-    # Tabela de Itens do Checklist
     cabecalho_tabela = [
         Paragraph("<b>CÓD.</b>", estilo_celula_bold),
         Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_celula),
@@ -400,14 +394,12 @@ def gerar_pdf_checklist(ev):
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
     ]))
     
-    # Ajusta cor do texto do cabeçalho da tabela para branco
     for i in range(len(cabecalho_tabela)):
         cabecalho_tabela[i].style.textColor = colors.white
 
     elementos.append(t_itens)
     elementos.append(Spacer(1, 30))
 
-    # Bloco de Assinaturas
     ass_dados = [
         [Paragraph(f"____________________________________________________<br/><b>Responsável Técnico:</b> {ev['responsavel']}", estilo_celula),
          Paragraph("____________________________________________________<br/><b>Conferência de Retorno (Galpão):</b> Data ___/___/_____", estilo_celula)]
@@ -598,7 +590,7 @@ if menu == "VISÃO GERAL DO ACERVO":
         )
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM FORMATO DE DATA BR)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL)
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -808,7 +800,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (GERAÇÃO DE PDF PROFISSIONAL COM LOGO)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
@@ -822,7 +814,6 @@ elif menu == "EMISSÃO DE CHECKLIST":
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Botão de Download do PDF Profissional
         pdf_bytes = gerar_pdf_checklist(ev_imp)
         nome_arq_pdf = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.pdf"
         
