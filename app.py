@@ -121,8 +121,9 @@ ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
 
 def carregar_logo():
     for nome in ["Logo.png", "logo.png", "LOGO.png", "logo.jpg", "Logo.jpg"]:
-        if os.path.exists(nome):
-            return nome
+        caminho = os.path.abspath(nome)
+        if os.path.exists(caminho):
+            return caminho
     return None
 
 def carregar_estoque():
@@ -332,12 +333,12 @@ def gerar_pdf_checklist(ev):
         alignment=1
     )
 
-    logo_file = carregar_logo()
+    logo_path = carregar_logo()
     tabela_cabecalho_dados = []
     
-    if logo_file and os.path.exists(logo_file):
+    if logo_path:
         try:
-            img = RLImage(logo_file, width=80, height=45)
+            img = RLImage(logo_path, width=85, height=42)
             img.hAlign = 'LEFT'
             tabela_cabecalho_dados = [
                 [img, Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=7 color='#64748b'>SISTEMA DE GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>", estilo_sub)]
@@ -347,7 +348,7 @@ def gerar_pdf_checklist(ev):
     else:
         tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
 
-    t_cab = Table(tabela_cabecalho_dados, colWidths=[90, 455])
+    t_cab = Table(tabela_cabecalho_dados, colWidths=[95, 450])
     t_cab.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('BOTTOMPADDING', (0,0), (-1,-1), 5),
@@ -372,7 +373,7 @@ def gerar_pdf_checklist(ev):
     elementos.append(t_info)
     elementos.append(Spacer(1, 10))
 
-    # Tabela com todos os itens do evento
+    # Tabela com todos os itens do evento (Garantindo que lista todos e exibe o cabeçalho completo)
     cabecalho_tabela = [
         Paragraph("<b>CÓD.</b>", estilo_th),
         Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_th),
@@ -393,7 +394,7 @@ def gerar_pdf_checklist(ev):
             Paragraph("____________________", estilo_celula)
         ])
 
-    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 105])
+    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 105], repeatRows=1)
     t_itens.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
