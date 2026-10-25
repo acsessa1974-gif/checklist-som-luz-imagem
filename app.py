@@ -264,7 +264,6 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
 def gerar_texto_romaneio(ev):
-    """Gera o conteúdo formatado em texto (.txt) para exportação de saída de equipamentos."""
     linhas = [
         "======================================================================",
         "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
@@ -297,7 +296,6 @@ def gerar_texto_romaneio(ev):
     return "\n".join(linhas)
 
 def gerar_texto_historico(df_h):
-    """Gera arquivo .txt com todos os relatórios registrados no histórico."""
     linhas = [
         "======================================================================",
         "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
@@ -474,7 +472,7 @@ if menu == "VISÃO GERAL DO ACERVO":
         )
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM PESQUISA RÁPIDA)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL COM PESQUISA E SALDO DINÂMICO)
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -489,7 +487,6 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
-    # Caixa de Pesquisa e Filtro de Setor combinados
     col_busca_s, col_cat_s = st.columns([2, 1])
     with col_busca_s:
         busca_saida = st.text_input(
@@ -524,19 +521,23 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 else:
                     st.session_state.carrinho_saida.pop(cod_item, None)
 
+    # Adiciona a coluna de saldo restante calculado dinamicamente em tempo real
+    df_disp_saida["Saldo Restante"] = df_disp_saida["Disponível"] - df_disp_saida["Qtd Expedir"]
+
     st.data_editor(
-        df_disp_saida,
+        df_disp_saida[["Código", "Categoria", "Equipamento", "Disponível", "Qtd Expedir", "Saldo Restante"]],
         key="editor_expedicao_busca",
         on_change=atualizar_selecao_saida,
         hide_index=True,
         use_container_width=True,
-        disabled=["Código", "Categoria", "Equipamento", "Disponível"],
+        disabled=["Código", "Categoria", "Equipamento", "Disponível", "Saldo Restante"],
         column_config={
             "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
             "Categoria": st.column_config.TextColumn("SETOR", width="small"),
             "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
-            "Disponível": st.column_config.NumberColumn("SALDO EM BASE", width="small"),
-            "Qtd Expedir": st.column_config.NumberColumn("QUANTIDADE A EXPEDIR", min_value=0, step=1, width="medium")
+            "Disponível": st.column_config.NumberColumn("SALDO BASE", width="small"),
+            "Qtd Expedir": st.column_config.NumberColumn("QTD A EXPEDIR", min_value=0, step=1, width="small"),
+            "Saldo Restante": st.column_config.NumberColumn("SALDO RESTANTE", width="small")
         }
     )
 
@@ -567,7 +568,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         if not nome_evento or not tecnico_resp:
             st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
         elif df_escolhidos.empty:
-            st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QUANTIDADE A EXPEDIR'.")
+            st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QTD A EXPEDIR'.")
         else:
             erro_qtd = False
             for _, row in df_escolhidos.iterrows():
@@ -702,7 +703,6 @@ elif menu == "EMISSÃO DE ROMANEIO":
             idx_imp = st.selectbox("Selecione o Relatório de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
             ev_imp = eventos_ativos[idx_imp]
             
-            # Botão de Exportação em Formato Texto (.TXT)
             conteudo_txt = gerar_texto_romaneio(ev_imp)
             nome_arq_txt = f"Saida_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
             st.download_button(
@@ -749,7 +749,6 @@ elif menu == "EMISSÃO DE ROMANEIO":
                 st.markdown("_____________________________________________________")
                 st.markdown("**CONFERÊNCIA DE RECEBIMENTO (BASE A.C.S.) — DATA: ___/___/___**")
 
-            # Zona Administrativa para apagar relatório ativo com senha exclusiva
             st.markdown('<div class="no-print"><br><hr>', unsafe_allow_html=True)
             with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE RELATÓRIO DE SAÍDA (SENHA EXCLUSIVA)"):
                 st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
@@ -832,7 +831,7 @@ elif menu == "CADASTRO DE MATERIAIS":
                 st.error("Preencha o Código Patrimonial e a Descrição Técnica do equipamento.")
 
 # =====================================================================
-# MÓDULO 6: HISTÓRICO DE OPERAÇÕES (EXPORTAR TXT + APAGAR COM SENHA)
+# MÓDULO 6: HISTÓRICO DE OPERAÇÕES
 # =====================================================================
 elif menu == "HISTÓRICO DE OPERAÇÕES":
     st.markdown('<div class="section-header">Auditoria e Histórico de Relatórios de Saída e Retorno</div>', unsafe_allow_html=True)
