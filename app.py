@@ -128,16 +128,16 @@ if not st.session_state.autenticado:
     with col_l2:
         st.title("A.C.S. Som, Luz e Imagem")
     
-    st.markdown("### 🔒 Acesso Restrito - Controlo de Equipamentos")
+    st.markdown("### 🔒 Acesso Restrito - Controle de Equipamentos")
     with st.form("form_login"):
-        senha_digitada = st.text_input("Palavra-passe de Acesso:", type="password")
+        senha_digitada = st.text_input("Senha de Acesso:", type="password")
         botao_login = st.form_submit_button("Entrar")
         if botao_login:
             if senha_digitada == "acs123":
                 st.session_state.autenticado = True
                 st.rerun()
             else:
-                st.error("Palavra-passe incorreta. Tente novamente.")
+                st.error("Senha incorreta. Tente novamente.")
     st.stop()
 
 # --- APLICATIVO PRINCIPAL ---
@@ -147,7 +147,7 @@ col_topo1, col_topo2 = st.columns([1, 6])
 with col_topo1:
     if logo_path: st.image(logo_path, width=100)
 with col_topo2:
-    st.title("🎛️ A.C.S. - Checklist de Equipamentos")
+    st.title("🎛️ A.C.S. - Controle de Equipamentos")
 
 st.markdown("---")
 
@@ -157,8 +157,8 @@ if st.sidebar.button("🔒 Sair do Sistema"):
 
 menu = st.sidebar.selectbox("Menu Principal", [
     "📋 Inventário Geral", 
-    "📤 Registar Saída", 
-    "📥 Registar Retorno (Entrada)", 
+    "📤 Registrar Saída", 
+    "📥 Registrar Retorno (Entrada)", 
     "🖨️ Lista para Impressão",
     "➕ Adicionar Equipamento", 
     "📜 Histórico de Movimentações"
@@ -177,10 +177,10 @@ if menu == "📋 Inventário Geral":
 
     st.dataframe(df_filtrado, use_container_width=True)
     with open(ARQUIVO_INVENTARIO, "rb") as f:
-        st.download_button("📥 Descarregar Inventário em Excel", f, file_name="inventario_acs.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("📥 Baixar Inventário em Excel", f, file_name="inventario_acs.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# 2. REGISTAR SAÍDA
-elif menu == "📤 Registar Saída":
+# 2. REGISTRAR SAÍDA
+elif menu == "📤 Registrar Saída":
     st.subheader("📤 Saída de Equipamentos para Evento")
     disponiveis = df[df["Status"] == "Disponível"]["Equipamento"].unique().tolist()
     if not disponiveis:
@@ -201,13 +201,13 @@ elif menu == "📤 Registar Saída":
                         df.loc[df["Código"] == cod, "Responsável"] = f"{responsavel} ({evento})"
                     salvar_inventario(df)
                     registrar_historico("SAÍDA", unidades_selecionadas, responsavel, evento)
-                    st.success(f"Saída registada com sucesso para {len(unidades_selecionadas)} unidade(s)!")
+                    st.success(f"Saída registrada com sucesso para {len(unidades_selecionadas)} unidade(s)!")
                     st.rerun()
                 else:
                     st.error("Por favor, preencha todos os campos obrigatórios.")
 
-# 3. REGISTAR RETORNO
-elif menu == "📥 Registar Retorno (Entrada)":
+# 3. REGISTRAR RETORNO
+elif menu == "📥 Registrar Retorno (Entrada)":
     st.subheader("📥 Retorno e Conferência de Equipamentos")
     em_uso = df[df["Status"] == "Em uso"]
     if em_uso.empty:
@@ -215,7 +215,7 @@ elif menu == "📥 Registar Retorno (Entrada)":
     else:
         opcoes_retorno = [f"{row['Código']} - {row['Equipamento']} (Com: {row['Responsável']})" for index, row in em_uso.iterrows()]
         with st.form("form_entrada"):
-            itens_retorno_sel = st.multiselect("Selecione os itens/unidades que estão a retornar:", opcoes_retorno)
+            itens_retorno_sel = st.multiselect("Selecione os itens/unidades que estão retornando:", opcoes_retorno)
             responsavel_retorno = st.text_input("Responsável pela Conferência de Entrada:")
             observacao = st.text_area("Observações de Retorno:", "Tudo OK")
             botao_retorno = st.form_submit_button("Confirmar Retorno ao Armazém")
@@ -228,7 +228,7 @@ elif menu == "📥 Registar Retorno (Entrada)":
                         df.loc[df["Código"] == cod, "Responsável"] = "-"
                     salvar_inventario(df)
                     registrar_historico("ENTRADA", codigos_retornando, responsavel_retorno, f"Retorno - Obs: {observacao}")
-                    st.success("Retorno registado com sucesso!")
+                    st.success("Retorno registrado com sucesso!")
                     st.rerun()
                 else:
                     st.error("Selecione ao menos um item e informe o responsável.")
@@ -255,7 +255,7 @@ elif menu == "🖨️ Lista para Impressão":
         
         tabela_impressao = [{"Conferir": "[  ]", "Categoria": row["Categoria"], "Equipamento / Modelo": row["Equipamento"], "Qtd Estoque": row["Qtd Disponível"], "Qtd Leva": "_____", "Qtd Volta": "_____"} for _, row in resumo_imp.iterrows()]
         st.table(pd.DataFrame(tabela_impressao))
-        st.info("💡 Prima **Ctrl + P** no teclado para imprimir esta folha diretamente.")
+        st.info("💡 Pressione **Ctrl + P** no teclado para imprimir esta folha diretamente.")
 
 # 5. ADICIONAR EQUIPAMENTO
 elif menu == "➕ Adicionar Equipamento":
@@ -265,7 +265,7 @@ elif menu == "➕ Adicionar Equipamento":
         novo_nome = st.text_input("Nome / Descrição do Equipamento:")
         novo_serie = st.text_input("Número de Série:", value="-")
         nova_categoria = st.selectbox("Categoria:", ["Áudio", "Luz", "Informática", "Acessórios", "Outros"])
-        salvar = st.form_submit_button("Guardar no Inventário")
+        salvar = st.form_submit_button("Salvar no Inventário")
         if salvar:
             if novo_codigo and novo_nome:
                 novo_reg = pd.DataFrame([{"Código": novo_codigo, "Equipamento": novo_nome, "N° de Série": novo_serie, "Categoria": nova_categoria, "Status": "Disponível", "Responsável": "-"}])
@@ -277,8 +277,8 @@ elif menu == "➕ Adicionar Equipamento":
 
 # 6. HISTÓRICO
 elif menu == "📜 Histórico de Movimentações":
-    st.subheader("📜 Registo de Histórico")
+    st.subheader("📜 Registro de Histórico")
     if os.path.exists(ARQUIVO_HISTORICO):
         st.dataframe(pd.read_excel(ARQUIVO_HISTORICO), use_container_width=True)
     else:
-        st.info("Sem registos de movimentações.")
+        st.info("Sem registros de movimentações.")
