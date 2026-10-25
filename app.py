@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 import json
+import io
 from datetime import datetime
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Configuração da Página
 st.set_page_config(
@@ -103,32 +109,11 @@ st.markdown("""
         padding: 0.5rem 1rem;
         transition: all 0.2s ease;
     }
-
-    @media print {
-        [data-testid="stSidebar"], 
-        .no-print, 
-        .stButton, 
-        .stDownloadButton, 
-        [data-testid="stFormSubmitButton"],
-        .stRadio,
-        .stSelectbox,
-        .stTextInput,
-        [data-testid="stExpander"] {
-            display: none !important;
-        }
-        body, .main, .block-container {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-        }
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# ARQUIVOS E BANCO DE DADOS (USANDO EXCEL PARA SEGURANÇA DOS DADOS)
+# ARQUIVOS E BANCO DE DADOS
 # =====================================================================
 ARQUIVO_ESTOQUE = "estoque_acs_quantidades.xlsx"
 ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
@@ -227,11 +212,11 @@ def carregar_estoque():
     } for codigo, nome, qtd, cat in dados_iniciais]
 
     df_inicial = pd.DataFrame(lista_estoque)
-    df_inicial.to_excel(ARQUIVO_ESTOQUE, index=False)
+    df_inicial.to_excel(ARQUIVO_INVENTARIO, index=False)
     return df_inicial
 
 def salvar_estoque(df):
-    df.to_excel(ARQUIVO_ESTOQUE, index=False)
+    df.to_excel(ARQUIVO_INVENTARIO, index=False)
 
 def carregar_eventos():
     if os.path.exists(ARQUIVO_EVENTOS):
@@ -280,37 +265,163 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
         df_hist = novo_reg
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
-def gerar_texto_checklist(ev):
-    linhas = [
-        "======================================================================",
-        "               A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA                    ",
-        "         RELATÓRIO DE CHECKLIST E SAÍDA DE EQUIPAMENTOS               ",
-        "======================================================================",
-        f"DOCUMENTO Nº        : {ev['id']}",
-        f"EVENTO / DESTINO    : {ev['evento']}",
-        f"RESPONSÁVEL TÉCNICO : {ev['responsavel']}",
-        f"DATA DE SAÍDA       : {ev['data_saida']}",
-        "----------------------------------------------------------------------",
-        f"{'CÓD.':<8} | {'QTD':<8} | {'ESPECIFICAÇÃO DO EQUIPAMENTO'}",
-        "----------------------------------------------------------------------"
-    ]
-    for item in ev["itens"]:
-        linhas.append(f"{str(item['Código']):<8} | {str(item['Qtd']) + ' un':<8} | {item['Equipamento']}")
+def gerar_pdf_checklist(ev):
+    """Gera um arquivo PDF profissional utilizando ReportLab com logomarca e layout corporativo."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30
+    )
     
-    linhas.extend([
-        "----------------------------------------------------------------------",
-        f"TOTAL DE ITENS LISTADOS: {len(ev['itens'])}",
-        "",
-        "",
-        "_____________________________________________________",
-        f"ASSINATURA DO RESPONSÁVEL ({ev['responsavel']})",
-        "",
-        "",
-        "_____________________________________________________",
-        "CONFERÊNCIA DE RETORNO AO GALPÃO (DATA: ___/___/_____)",
-        "======================================================================"
-    ])
-    return "\n".join(linhas)
+    elementos = []
+    styles = getSampleStyleSheet()
+    
+    # Estilos personalizados
+    estilo_titulo = ParagraphStyle(
+        'TituloDoc',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#0f172a'),
+        alignment=1 # Centralizado
+    )
+    estilo_sub = ParagraphStyle(
+        'SubTitulo',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#475569'),
+        alignment=1
+    )
+    estilo_info = ParagraphStyle(
+        'InfoCab',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#1e293b')
+    )
+    estilo_celula = ParagraphStyle(
+        'CelulaTabela',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor('#0f172a')
+    )
+    estilo_celula_bold = ParagraphStyle(
+        'CelulaTabelaBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor('#0f172a'),
+        alignment=1
+    )
+
+    # Cabeçalho com Logomarca e Título
+    logo_file = carregar_logo()
+    tabela_cabecalho_dados = []
+    
+    if logo_file and os.path.exists(logo_file):
+        try:
+            img = RLImage(logo_file, width=70, height=50)
+            img.hAlign = 'LEFT'
+            tabela_cabecalho_dados = [
+                [img, Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=8 color='#64748b'>SISTEMA DE GESTÃO TÉCNICA E LOGÍSTICA</font>", estilo_sub)]
+            ]
+        except Exception:
+            tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
+    else:
+        tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
+
+    t_cab = Table(tabela_cabecalho_dados, colWidths=[80, 455])
+    t_cab.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+    ]))
+    elementos.append(t_cab)
+    elementos.append(Spacer(1, 5))
+
+    # Título do Documento
+    elementos.append(Paragraph("<b>CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA</b>", estilo_titulo))
+    elementos.append(Spacer(1, 10))
+
+    # Detalhes do Evento
+    info_dados = [
+        [Paragraph(f"<b>Documento Nº:</b> {ev['id']}", estilo_info), Paragraph(f"<b>Data de Saída:</b> {ev['data_saida']}", estilo_info)],
+        [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)]
+    ]
+    t_info = Table(info_dados, colWidths=[275, 260])
+    t_info.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f1f5f9')),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
+    ]))
+    elementos.append(t_info)
+    elementos.append(Spacer(1, 15))
+
+    # Tabela de Itens do Checklist
+    cabecalho_tabela = [
+        Paragraph("<b>CÓD.</b>", estilo_celula_bold),
+        Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_celula),
+        Paragraph("<b>QTD</b>", estilo_celula_bold),
+        Paragraph("<b>SAÍDA</b>", estilo_celula_bold),
+        Paragraph("<b>RETORNO</b>", estilo_celula_bold),
+        Paragraph("<b>OBSERVAÇÕES</b>", estilo_celula_bold)
+    ]
+    
+    dados_tabela = [cabecalho_tabela]
+    for item in ev["itens"]:
+        dados_tabela.append([
+            Paragraph(str(item['Código']), estilo_celula_bold),
+            Paragraph(str(item['Equipamento']), estilo_celula),
+            Paragraph(f"{item['Qtd']} un", estilo_celula_bold),
+            Paragraph("[   ]", estilo_celula_bold),
+            Paragraph("[   ]", estilo_celula_bold),
+            Paragraph("____________________", estilo_celula)
+        ])
+
+    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 95])
+    t_itens.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+    ]))
+    
+    # Ajusta cor do texto do cabeçalho da tabela para branco
+    for i in range(len(cabecalho_tabela)):
+        cabecalho_tabela[i].style.textColor = colors.white
+
+    elementos.append(t_itens)
+    elementos.append(Spacer(1, 30))
+
+    # Bloco de Assinaturas
+    ass_dados = [
+        [Paragraph(f"____________________________________________________<br/><b>Responsável Técnico:</b> {ev['responsavel']}", estilo_celula),
+         Paragraph("____________________________________________________<br/><b>Conferência de Retorno (Galpão):</b> Data ___/___/_____", estilo_celula)]
+    ]
+    t_ass = Table(ass_dados, colWidths=[267, 268])
+    t_ass.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('TOPPADDING', (0,0), (-1,-1), 20),
+    ]))
+    elementos.append(t_ass)
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 def gerar_texto_historico(df_h):
     linhas = [
@@ -392,10 +503,8 @@ with st.sidebar:
         st.rerun()
 
 # =====================================================================
-# CABEÇALHO E PAINEL DE INDICADORES (OCULTOS NA IMPRESSÃO)
+# CABEÇALHO E PAINEL DE INDICADORES
 # =====================================================================
-st.markdown('<div class="no-print">', unsafe_allow_html=True)
-
 st.markdown(f"""
 <div class="corporate-header">
     <div>
@@ -438,7 +547,7 @@ with k4:
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<br></div>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================================================================
 # MÓDULO 1: VISÃO GERAL DO ACERVO
@@ -623,7 +732,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 
                 registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), "Saída técnica autorizada")
                 st.session_state.carrinho_saida = {}
-                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para imprimir ou exportar em .TXT.")
+                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
 
 # =====================================================================
@@ -699,151 +808,51 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (IMPRESSÃO NATIVA ESTABILIZADA + TXT)
+# MÓDULO 4: EMISSÃO DE CHECKLIST (GERAÇÃO DE PDF PROFISSIONAL COM LOGO)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
-    st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">Emissão e Exportação de Documentos Operacionais</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
     
-    tipo_impressao = st.radio(
-        "Selecione o documento desejado:",
-        ["CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO", "LISTA GERAL DE CONFERÊNCIA FÍSICA (INVENTÁRIO)"],
-        horizontal=True
-    )
-    st.caption("Instrução: Utilize o botão de impressão abaixo, baixe em formato Texto (.TXT) ou utilize Ctrl + P para salvar em PDF.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if tipo_impressao == "CHECKLIST / ORDEM DE EXPEDIÇÃO DE EVENTO":
-        if not eventos_ativos:
-            st.warning("Não existem relatórios de saída ativos no momento.")
-        else:
-            st.markdown('<div class="no-print">', unsafe_allow_html=True)
-            opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
-            idx_imp = st.selectbox("Selecione o Checklist de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
-            ev_imp = eventos_ativos[idx_imp]
-            
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                # Utiliza link HTML puramente nativo simulando botão de impressão para evitar bloqueios de script do Streamlit Cloud
-                st.markdown("""
-                    <div style="margin-top: 0px;">
-                        <a href="javascript:window.print()" style="text-decoration: none;">
-                            <div style="width: 100%; background-color: #0d9488; color: white; text-align: center; padding: 0.6rem 1rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
-                                🖨️ IMPRIMIR / GERAR PDF
-                            </div>
-                        </a>
-                    </div>
-                """, unsafe_allow_html=True)
-            with col_b2:
-                conteudo_txt = gerar_texto_checklist(ev_imp)
-                nome_arq_txt = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.txt"
-                st.download_button(
-                    label="📥 EXPORTAR EM FORMATO TEXTO (.TXT)",
-                    data=conteudo_txt.encode("utf-8"),
-                    file_name=nome_arq_txt,
-                    mime="text/plain",
-                    type="primary",
-                    use_container_width=True
-                )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("---")
-            c_logo, c_titulo = st.columns([1, 4])
-            with c_logo:
-                if logo_path:
-                    st.image(logo_path, width=120)
-            with c_titulo:
-                st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
-                st.markdown("**CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA DE EQUIPAMENTOS**")
-                st.markdown(f"**DOCUMENTO Nº:** `{ev_imp['id']}` &nbsp;|&nbsp; **DATA DE SAÍDA:** `{ev_imp['data_saida']}`")
-            
-            st.markdown(f"""
-            **EVENTO / DESTINO:** {ev_imp['evento']}  
-            **RESPONSÁVEL TÉCNICO:** {ev_imp['responsavel']}
-            """)
-            st.markdown("---")
-            
-            tabela_romaneio = [{
-                "CÓD.": item["Código"],
-                "ESPECIFICAÇÃO DO EQUIPAMENTO": item["Equipamento"],
-                "QTD": f"{item['Qtd']} un",
-                "SAÍDA": "[    ]",
-                "RETORNO": "[    ]",
-                "OBSERVAÇÕES TÉCNICAS": "________________________"
-            } for item in ev_imp["itens"]]
-            st.table(pd.DataFrame(tabela_romaneio))
-
-            st.markdown("<br><br><br>", unsafe_allow_html=True)
-            ca1, ca2 = st.columns(2)
-            with ca1:
-                st.markdown("_____________________________________________________")
-                st.markdown(f"**EXPEDIÇÃO / RESPONSÁVEL TÉCNICO ({ev_imp['responsavel']})**")
-            with ca2:
-                st.markdown("_____________________________________________________")
-                st.markdown("**CONFERÊNCIA DE RECEBIMENTO (BASE A.C.S.) — DATA: ___/___/___**")
-
-            st.markdown('<div class="no-print"><br><hr>', unsafe_allow_html=True)
-            with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
-                st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
-                senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
-                if st.button("APAGAR CHECKLIST SELECIONADO"):
-                    if senha_del_romaneio == SENHA_EXCLUSAO:
-                        for item in ev_imp["itens"]:
-                            cod_i = str(item["Código"])
-                            qtd_i = int(item["Qtd"])
-                            df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
-                            df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
-                        salvar_estoque(df_estoque)
-                        eventos_ativos.pop(idx_imp)
-                        salvar_eventos(eventos_ativos)
-                        st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
-                        st.rerun()
-                    else:
-                        st.error("Senha administrativa incorreta. Exclusão não autorizada.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
+    if not eventos_ativos:
+        st.warning("Não existem relatórios de saída ativos no momento.")
     else:
-        st.markdown('<div class="no-print">', unsafe_allow_html=True)
-        col_imp1, col_imp2 = st.columns([2, 1])
-        with col_imp1:
-            cat_filtro_imp = st.selectbox("Filtrar Departamento:", ["Todos", "Áudio", "Luz", "Informática", "Acessórios"])
-        with col_imp2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("""
-                <div style="margin-top: 0px;">
-                    <a href="javascript:window.print()" style="text-decoration: none;">
-                        <div style="width: 100%; background-color: #0d9488; color: white; text-align: center; padding: 0.6rem 1rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.4px;">
-                            🖨️ IMPRIMIR / GERAR PDF
-                        </div>
-                    </a>
-                </div>
-            """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
+        idx_imp = st.selectbox("Selecione o Checklist de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
+        ev_imp = eventos_ativos[idx_imp]
         
-        st.markdown("---")
-        c_logo, c_titulo = st.columns([1, 4])
-        with c_logo:
-            if logo_path:
-                st.image(logo_path, width=120)
-        with c_titulo:
-            st.markdown("### **A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA**")
-            st.markdown("**FORMULÁRIO DE REQUISIÇÃO E CONFERÊNCIA DE ACERVO**")
-            st.markdown(f"**EVENTO:** _______________________________________ &nbsp;|&nbsp; **DATA:** {datetime.now().strftime('%d/%m/%Y')}")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        st.markdown("---")
-        df_ficha = df_estoque.copy()
-        if cat_filtro_imp != "Todos":
-            df_ficha = df_ficha[df_ficha["Categoria"] == cat_filtro_imp]
+        # Botão de Download do PDF Profissional
+        pdf_bytes = gerar_pdf_checklist(ev_imp)
+        nome_arq_pdf = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.pdf"
+        
+        st.download_button(
+            label="📄 BAIXAR CHECKLIST EM PDF PROFISSIONAL (COM LOGOMARCA)",
+            data=pdf_bytes,
+            file_name=nome_arq_pdf,
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True
+        )
 
-        tabela_ficha = [{
-            "CÓD.": row["Código"],
-            "SETOR": row["Categoria"],
-            "ESPECIFICAÇÃO DO EQUIPAMENTO": row["Equipamento"],
-            "SALDO BASE": row["Disponível"],
-            "QTD SAÍDA": "________",
-            "CONFERÊNCIA": "[    ]"
-        } for _, row in df_ficha.iterrows()]
-        st.table(pd.DataFrame(tabela_ficha))
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
+            st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
+            senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
+            if st.button("APAGAR CHECKLIST SELECIONADO"):
+                if senha_del_romaneio == SENHA_EXCLUSAO:
+                    for item in ev_imp["itens"]:
+                        cod_i = str(item["Código"])
+                        qtd_i = int(item["Qtd"])
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
+                    salvar_estoque(df_estoque)
+                    eventos_ativos.pop(idx_imp)
+                    salvar_eventos(eventos_ativos)
+                    st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
+                    st.rerun()
+                else:
+                    st.error("Senha administrativa incorreta. Exclusão não autorizada.")
 
 # =====================================================================
 # MÓDULO 5: CADASTRO DE MATERIAIS
