@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 # Configuração da Página
-st.set_page_config(page_title="Checklist de Equipamentos - ACS", page_icon="🎛️", layout="wide")
+st.set_page_config(page_title="Checklist A.C.S. - Som, Luz e Imagem", page_icon="🎛️", layout="wide")
 
 # FICHEIROS DE DADOS
 ARQUIVO_INVENTARIO = "inventario_equipamentos.xlsx"
@@ -14,9 +14,7 @@ def carregar_inventario():
     if os.path.exists(ARQUIVO_INVENTARIO):
         return pd.read_excel(ARQUIVO_INVENTARIO)
     else:
-        # Lista completa de equipamentos da ACS com base no seu inventário
         dados_iniciais = [
-            # ÁUDIO
             ("001", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
             ("002", "CAIXA DE PA LINE ARRAY ATTACK VRD108", 16, "Áudio"),
             ("003", "SUBGRAVE DUPLO LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
@@ -69,8 +67,6 @@ def carregar_inventario():
             ("050", "KIT DE MICROFONE DE BATERIA SAMSON", 2, "Áudio"),
             ("051", "CAIXA DE MONITOR CLAIR 112", 12, "Áudio"),
             ("052", "FONE DE OUVIDO AKG", 24, "Áudio"),
-            
-            # LUZ E ILUMINAÇÃO
             ("053", "REFLETOR PAR LED RGBW", 100, "Luz"),
             ("054", "REFLETOR COB", 10, "Luz"),
             ("055", "REFLETOR RIBALTA LED RGBW", 40, "Luz"),
@@ -82,15 +78,12 @@ def carregar_inventario():
             ("061", "MESA DMX AVOLITES PEARL", 2, "Luz"),
             ("062", "MESA DMX AVOLITES MINI", 2, "Luz"),
             ("063", "MESA DMX GRAND MA", 1, "Luz"),
-            
-            # INFORMÁTICA E ACESSÓRIOS
             ("064", "NOTEBOOK VÁRIOS MODELOS", 100, "Informática"),
             ("065", "TABLET IPAD", 12, "Informática"),
             ("066", "TABLET SAMSUNG", 4, "Informática"),
             ("067", "ROTEADOR SEM FIO DLINK", 8, "Acessórios")
         ]
 
-        # Expandir itens com quantidade > 1 para linhas individuais ou gerir com coluna de quantidade
         lista_expandida = []
         for codigo, nome, qtd, cat in dados_iniciais:
             if qtd == 1:
@@ -142,9 +135,14 @@ if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
 if not st.session_state.autenticado:
-    st.title("🔒 Acesso Restrito - A.C.S. Som, Luz e Imagem")
-    st.markdown("Por favor, introduza a palavra-passe para aceder ao sistema.")
+    col_l1, col_l2 = st.columns([1, 4])
+    with col_l1:
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=120)
+    with col_l2:
+        st.title("A.C.S. Som, Luz e Imagem")
     
+    st.markdown("### 🔒 Acesso Restrito ao Sistema de Checklist")
     with st.form("form_login"):
         senha_digitada = st.text_input("Palavra-passe de Acesso:", type="password")
         botao_login = st.form_submit_button("Entrar")
@@ -160,8 +158,15 @@ if not st.session_state.autenticado:
 # --- APLICATIVO PRINCIPAL ---
 df = carregar_inventario()
 
-st.title("🎛️ A.C.S. - Gestão de Equipamentos")
-st.markdown("Controlo profissional de inventário, saídas e entradas para eventos.")
+# Exibição da Logomarca no Topo (se o ficheiro logo.png existir)
+col_topo1, col_topo2 = st.columns([1, 6])
+with col_topo1:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=100)
+with col_topo2:
+    st.title("🎛️ A.C.S. - Controlo de Equipamentos")
+
+st.markdown("---")
 
 if st.sidebar.button("🔒 Sair do Sistema"):
     st.session_state.autenticado = False
@@ -171,6 +176,7 @@ menu = st.sidebar.selectbox("Menu Principal", [
     "📋 Inventário Geral", 
     "📤 Registar Saída", 
     "📥 Registar Retorno (Entrada)", 
+    "🖨️ Gerar Lista para Impressão",
     "➕ Adicionar Equipamento", 
     "📜 Histórico de Movimentações"
 ])
@@ -207,8 +213,6 @@ elif menu == "📤 Registar Saída":
     else:
         with st.form("form_saida"):
             item_escolhido = st.selectbox("Selecione o Equipamento:", disponiveis)
-            
-            # Mostra as unidades disponíveis específicas deste equipamento
             itens_especificos = df[(df["Equipamento"] == item_escolhido) & (df["Status"] == "Disponível")]["Código"].tolist()
             unidades_selecionadas = st.multiselect("Selecione os Códigos/Unidades específicas:", itens_especificos)
             
@@ -265,7 +269,62 @@ elif menu == "📥 Registar Retorno (Entrada)":
                 else:
                     st.error("Selecione ao menos um item e informe quem conferiu.")
 
-# 4. ADICIONAR EQUIPAMENTO
+# 4. GERAR LISTA PARA IMPRESSÃO
+elif menu == "🖨️ Gerar Lista para Impressão":
+    st.subheader("🖨️ Folha de Checklist para Impressão (Saída/Conferência)")
+    st.markdown("Selecione os parâmetros para gerar um modelo limpo ideal para impressão em papel ou PDF.")
+
+    with st.form("form_impressao"):
+        nome_evento_imp = st.text_input("Nome do Evento / Show:", value="Evento Exemplo")
+        responsavel_imp = st.text_input("Técnico Responsável:", value="Nome do Técnico")
+        cat_imp = st.selectbox("Filtrar Categoria para a Lista:", ["Todas", "Áudio", "Luz", "Informática", "Acessórios"])
+        gerar_lista = st.form_submit_button("Gerar Lista de Conferência")
+
+    if gerar_lista:
+        st.markdown("---")
+        # Cabeçalho para impressão
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=120)
+        st.markdown(f"## **A.C.S. SOM, LUZ E IMAGEM - CHECKLIST DE SAÍDA**")
+        st.markdown(f"**Evento / Destino:** {nome_evento_imp}  |  **Técnico:** {responsavel_imp}  |  **Data:** {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        st.markdown("---")
+
+        # Agrupar equipamentos disponíveis por modelo/nome para mostrar modelo e quantidade resumida
+        df_disp = df[df["Status"] == "Disponível"]
+        if cat_imp != "Todas":
+            df_disp = df_disp[df_disp["Categoria"] == cat_imp]
+        
+        resumo_imp = df_disp.groupby(["Categoria", "Equipamento"]).size().reset_index(name="Qtd Disponível")
+        
+        # Tabela formatada com campo de conferência [ ]
+        tabela_impressao = []
+        for index, row in resumo_imp.iterrows():
+            tabela_impressao.append({
+                "Conferir": "[  ]",
+                "Categoria": row["Categoria"],
+                "Equipamento / Modelo": row["Equipamento"],
+                "Qtd Estoque": row["Qtd Disponível"],
+                "Qtd Leva": "_____",
+                "Qtd Volta": "_____"
+            })
+        
+        df_print = pd.DataFrame(tabela_impressao)
+        st.table(df_print)
+
+        st.markdown("---")
+        st.markdown("#### **Assinaturas e Conferência:**")
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        col_ass1, col_ass2 = st.columns(2)
+        with col_ass1:
+            st.markdown("_______________________________________")
+            st.markdown("**Conferente do Armazém (Saída)**")
+        with col_ass2:
+            st.markdown("_______________________________________")
+            st.markdown(f"**Técnico Responsável ({responsavel_imp})**")
+        
+        st.info("💡 **Dica:** Para imprimir esta folha diretamente, prima **Ctrl + P** no seu teclado ou use a função de partilha do seu telemóvel para guardar como PDF ou imprimir para a impressora.")
+
+# 5. ADICIONAR EQUIPAMENTO
 elif menu == "➕ Adicionar Equipamento":
     st.subheader("➕ Adicionar Novo Item ao Inventário")
     
@@ -294,7 +353,7 @@ elif menu == "➕ Adicionar Equipamento":
             else:
                 st.error("Preencha obrigatoriamente o código e o nome.")
 
-# 5. HISTÓRICO DE MOVIMENTAÇÕES
+# 6. HISTÓRICO DE MOVIMENTAÇÕES
 elif menu == "📜 Histórico de Movimentações":
     st.subheader("📜 Registo de Histórico de Saídas e Entradas")
     
