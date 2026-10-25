@@ -270,10 +270,10 @@ def gerar_pdf_checklist(ev):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
+        bottomMargin=25
     )
     
     elementos = []
@@ -283,8 +283,8 @@ def gerar_pdf_checklist(ev):
         'TituloDoc',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
+        fontSize=12,
+        leading=15,
         textColor=colors.HexColor('#0f172a'),
         alignment=1
     )
@@ -292,24 +292,24 @@ def gerar_pdf_checklist(ev):
         'SubTitulo',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9,
-        leading=12,
+        fontSize=8,
+        leading=11,
         textColor=colors.HexColor('#475569'),
-        alignment=1
+        alignment=0
     )
     estilo_info = ParagraphStyle(
         'InfoCab',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=10,
-        leading=14,
+        fontSize=9,
+        leading=13,
         textColor=colors.HexColor('#1e293b')
     )
     estilo_celula = ParagraphStyle(
         'CelulaTabela',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9,
+        fontSize=8.5,
         leading=11,
         textColor=colors.HexColor('#0f172a')
     )
@@ -317,9 +317,18 @@ def gerar_pdf_checklist(ev):
         'CelulaTabelaBold',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=9,
+        fontSize=8.5,
         leading=11,
         textColor=colors.HexColor('#0f172a'),
+        alignment=1
+    )
+    estilo_th = ParagraphStyle(
+        'TabelaHeader',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.white,
         alignment=1
     )
 
@@ -328,48 +337,49 @@ def gerar_pdf_checklist(ev):
     
     if logo_file and os.path.exists(logo_file):
         try:
-            img = RLImage(logo_file, width=70, height=50)
+            img = RLImage(logo_file, width=80, height=45)
             img.hAlign = 'LEFT'
             tabela_cabecalho_dados = [
-                [img, Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=8 color='#64748b'>SISTEMA DE GESTÃO TÉCNICA E LOGÍSTICA</font>", estilo_sub)]
+                [img, Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=7 color='#64748b'>SISTEMA DE GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>", estilo_sub)]
             ]
         except Exception:
             tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
     else:
         tabela_cabecalho_dados = [[Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b>", estilo_sub)]]
 
-    t_cab = Table(tabela_cabecalho_dados, colWidths=[80, 455])
+    t_cab = Table(tabela_cabecalho_dados, colWidths=[90, 455])
     t_cab.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
     ]))
     elementos.append(t_cab)
-    elementos.append(Spacer(1, 5))
+    elementos.append(Spacer(1, 4))
 
     elementos.append(Paragraph("<b>CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA</b>", estilo_titulo))
-    elementos.append(Spacer(1, 10))
+    elementos.append(Spacer(1, 8))
 
     info_dados = [
         [Paragraph(f"<b>Documento Nº:</b> {ev['id']}", estilo_info), Paragraph(f"<b>Data de Saída:</b> {ev['data_saida']}", estilo_info)],
         [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)]
     ]
-    t_info = Table(info_dados, colWidths=[275, 260])
+    t_info = Table(info_dados, colWidths=[280, 265])
     t_info.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f1f5f9')),
-        ('PADDING', (0,0), (-1,-1), 8),
+        ('PADDING', (0,0), (-1,-1), 6),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
     ]))
     elementos.append(t_info)
-    elementos.append(Spacer(1, 15))
+    elementos.append(Spacer(1, 10))
 
+    # Tabela com todos os itens do evento
     cabecalho_tabela = [
-        Paragraph("<b>CÓD.</b>", estilo_celula_bold),
-        Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_celula),
-        Paragraph("<b>QTD</b>", estilo_celula_bold),
-        Paragraph("<b>SAÍDA</b>", estilo_celula_bold),
-        Paragraph("<b>RETORNO</b>", estilo_celula_bold),
-        Paragraph("<b>OBSERVAÇÕES</b>", estilo_celula_bold)
+        Paragraph("<b>CÓD.</b>", estilo_th),
+        Paragraph("<b>ESPECIFICAÇÃO DO EQUIPAMENTO</b>", estilo_th),
+        Paragraph("<b>QTD</b>", estilo_th),
+        Paragraph("<b>SAÍDA</b>", estilo_th),
+        Paragraph("<b>RETORNO</b>", estilo_th),
+        Paragraph("<b>OBSERVAÇÕES</b>", estilo_th)
     ]
     
     dados_tabela = [cabecalho_tabela]
@@ -383,31 +393,26 @@ def gerar_pdf_checklist(ev):
             Paragraph("____________________", estilo_celula)
         ])
 
-    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 95])
+    t_itens = Table(dados_tabela, colWidths=[45, 235, 45, 55, 60, 105])
     t_itens.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0f172a')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
     ]))
-    
-    for i in range(len(cabecalho_tabela)):
-        cabecalho_tabela[i].style.textColor = colors.white
-
     elementos.append(t_itens)
-    elementos.append(Spacer(1, 30))
+    elementos.append(Spacer(1, 15))
 
     ass_dados = [
         [Paragraph(f"____________________________________________________<br/><b>Responsável Técnico:</b> {ev['responsavel']}", estilo_celula),
          Paragraph("____________________________________________________<br/><b>Conferência de Retorno (Galpão):</b> Data ___/___/_____", estilo_celula)]
     ]
-    t_ass = Table(ass_dados, colWidths=[267, 268])
+    t_ass = Table(ass_dados, colWidths=[272, 273])
     t_ass.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
-        ('TOPPADDING', (0,0), (-1,-1), 20),
+        ('TOPPADDING', (0,0), (-1,-1), 10),
     ]))
     elementos.append(t_ass)
 
