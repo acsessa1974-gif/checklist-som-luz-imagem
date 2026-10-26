@@ -34,9 +34,9 @@ st.markdown("""
     footer {visibility: hidden;}
 
     .main .block-container {
-        padding-top: 1.5rem;
+        padding-top: 1rem;
         padding-bottom: 2rem;
-        max-width: 96%;
+        max-width: 98%;
     }
     
     .corporate-header {
@@ -45,7 +45,7 @@ st.markdown("""
         padding: 1.2rem 1.8rem;
         border-radius: 6px;
         border-left: 5px solid #0d9488;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -69,34 +69,35 @@ st.markdown("""
         background-color: #1e293b;
         border: 1px solid #334155;
         border-radius: 6px;
-        padding: 1rem 1.2rem;
+        padding: 0.8rem 1rem;
         text-align: left;
+        margin-bottom: 5px;
     }
     .kpi-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: #94a3b8;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         font-weight: 600;
     }
     .kpi-value {
-        font-size: 1.6rem;
+        font-size: 1.4rem;
         font-weight: 700;
         color: #f8fafc;
-        margin-top: 4px;
+        margin-top: 2px;
     }
     .kpi-accent {
         color: #2dd4bf;
     }
 
     .section-header {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 600;
         color: #e2e8f0;
         text-transform: uppercase;
         letter-spacing: 0.6px;
         border-bottom: 1px solid #334155;
-        padding-bottom: 0.5rem;
+        padding-bottom: 0.4rem;
         margin-bottom: 1rem;
         margin-top: 0.5rem;
     }
@@ -510,34 +511,32 @@ if not st.session_state.autenticado:
     st.stop()
 
 # =====================================================================
-# CARREGAMENTO E BARRA LATERAL
+# CARREGAMENTO E BARRA LATERAL (MENU SUPERIOR ADAPTATIVO PARA TELEMÓVEL)
 # =====================================================================
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
 
-with st.sidebar:
-    if logo_path:
-        st.image(logo_path, width=130)
-    st.markdown("**A.C.S. SOM, LUZ E IMAGEM**")
-    st.caption("Módulo de Gestão Operacional")
-    st.markdown("---")
-    
-    menu = st.radio(
-        "MÓDULOS DO SISTEMA",
-        [
-            "VISÃO GERAL DO ACERVO",
-            "EXPEDIÇÃO (SAÍDA)",
-            "RETORNO E CONFERÊNCIA",
-            "EMISSÃO DE CHECKLIST",
-            "CADASTRO DE MATERIAIS",
-            "HISTÓRICO DE OPERAÇÕES"
-        ]
-    )
-    
-    st.markdown("---")
-    if st.button("ENCERRAR SESSÃO", use_container_width=True):
+# Removemos a barra lateral antiga e colocamos um seletor visível diretamente no topo para telemóveis
+st.markdown("### 🎛️ PAINEL OPERACIONAL A.C.S.")
+menu = st.selectbox(
+    "📍 SELECIONE O MÓDULO DO SISTEMA:",
+    [
+        "VISÃO GERAL DO ACERVO",
+        "EXPEDIÇÃO (SAÍDA)",
+        "RETORNO E CONFERÊNCIA",
+        "EMISSÃO DE CHECKLIST",
+        "CADASTRO DE MATERIAIS",
+        "HISTÓRICO DE OPERAÇÕES"
+    ]
+)
+
+col_topo_dir1, col_topo_dir2 = st.columns([5, 1])
+with col_topo_dir2:
+    if st.button("SAIR", use_container_width=True):
         st.session_state.autenticado = False
         st.rerun()
+
+st.markdown("---")
 
 # =====================================================================
 # CABEÇALHO E PAINEL DE INDICADORES
@@ -728,7 +727,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("CONFIRMAR EXPEDIÇÃO E GERAR CHECKLIST", type="primary", use_container_width=True):
         if not nome_evento or not tecnico_resp:
-            st.error("Preenchimento obrigatório: informe a Identificação o Evento e o Responsável Técnico.")
+            st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
         elif df_escolhidos.empty:
             st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QTD A EXPEDIR'.")
         else:
@@ -774,7 +773,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 3: RETORNO E CONFERÊNCIA (INICIA DESMARCADO)
+# MÓDULO 3: RETORNO E CONFERÊNCIA
 # =====================================================================
 elif menu == "RETORNO E CONFERÊNCIA":
     st.markdown('<div class="section-header">Recebimento e Conferência de Material Pós-Evento</div>', unsafe_allow_html=True)
