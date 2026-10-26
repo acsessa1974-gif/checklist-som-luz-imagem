@@ -591,7 +591,7 @@ with k4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================================================================
-# MÓDULO 1: VISÃO GERAL DO ACERVO
+# MÓDULO 1: VISÃO GERAL DO ACERVO (COM OPÇÃO DE REMOÇÃO SEGURA)
 # =====================================================================
 if menu == "VISÃO GERAL DO ACERVO":
     st.markdown('<div class="section-header">Posição Consolidada do Acervo Técnico</div>', unsafe_allow_html=True)
@@ -637,6 +637,27 @@ if menu == "VISÃO GERAL DO ACERVO":
             f,
             file_name=f"acervo_acs_{datetime.now().strftime('%Y%m%d')}.xlsx"
         )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("ZONA ADMINISTRATIVA — REMOVER EQUIPAMENTO DO ACERVO (SENHA EXCLUSIVA)"):
+        st.warning("Atenção: A remoção de um item do acervo é permanente e atualizará o inventário geral.")
+        
+        opcoes_itens = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()]
+        item_para_remover = st.selectbox("Selecione o equipamento que deseja remover do acervo:", options=opcoes_itens)
+        
+        senha_del_item = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_item")
+        
+        if st.button("REMOVER ITEM SELECIONADO"):
+            if senha_del_item != SENHA_EXCLUSAO:
+                st.error("Senha administrativa incorreta. Operação bloqueada.")
+            elif not item_para_remover:
+                st.warning("Selecione um equipamento válido.")
+            else:
+                cod_extraido = item_para_remover.split("|")[0].replace("Cód:", "").strip().zfill(3)
+                df_estoque = df_estoque[df_estoque["Código"] != cod_extraido].reset_index(drop=True)
+                salvar_estoque(df_estoque)
+                st.success(f"Equipamento com código {cod_extraido} removido permanentemente do acervo com sucesso!")
+                st.rerun()
 
 # =====================================================================
 # MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL)
