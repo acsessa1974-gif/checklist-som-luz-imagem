@@ -25,7 +25,7 @@ SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
 SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios de saída
 
 # =====================================================================
-# ESTILIZAÇÃO CORPORATIVA (CSS)
+# ESTILIZAÇÃO CORPORATIVA (CSS) RESPONSIVA
 # =====================================================================
 st.markdown("""
 <style>
@@ -293,7 +293,6 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
     df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
 def gerar_pdf_checklist(ev):
-    """Gera o PDF corporativo garantindo a exibição da logomarca em fundo escuro e linhas ajustadas."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -729,7 +728,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("CONFIRMAR EXPEDIÇÃO E GERAR CHECKLIST", type="primary", use_container_width=True):
         if not nome_evento or not tecnico_resp:
-            st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
+            st.error("Preenchimento obrigatório: informe a Identificação o Evento e o Responsável Técnico.")
         elif df_escolhidos.empty:
             st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QTD A EXPEDIR'.")
         else:
@@ -790,7 +789,6 @@ elif menu == "RETORNO E CONFERÊNCIA":
         
         df_ret = pd.DataFrame(ev_atual["itens"])
         df_ret["Código"] = df_ret["Código"].astype(str).str.zfill(3)
-        # Inicia com todas as caixas desmarcadas (False) para conferência individual obrigatória
         df_ret["Validado"] = False
         df_ret["Laudo / Ocorrência"] = "Sem avarias"
 
