@@ -155,10 +155,13 @@ def carregar_logo():
 
 def carregar_estoque():
     if os.path.exists(ARQUIVO_ESTOQUE):
-        df = pd.read_excel(ARQUIVO_ESTOQUE)
-        if "Estoque Total" in df.columns:
-            df["Código"] = df["Código"].astype(str).str.zfill(3)
-            return df
+        try:
+            df = pd.read_excel(ARQUIVO_ESTOQUE)
+            if "Estoque Total" in df.columns:
+                df["Código"] = df["Código"].astype(str).str.zfill(3)
+                return df
+        except Exception:
+            pass
 
     dados_iniciais = [
         ("001", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
@@ -591,7 +594,7 @@ with k4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================================================================
-# MÓDULO 1: VISÃO GERAL DO ACERVO (COM OPÇÃO DE REMOÇÃO SEGURA)
+# MÓDULO 1: VISÃO GERAL DO ACERVO (COM REMOÇÃO SEGURA)
 # =====================================================================
 if menu == "VISÃO GERAL DO ACERVO":
     st.markdown('<div class="section-header">Posição Consolidada do Acervo Técnico</div>', unsafe_allow_html=True)
