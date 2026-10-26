@@ -516,7 +516,7 @@ if not st.session_state.autenticado:
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
 
-# Exibe a logomarca no topo caso exista
+# Exibe a logomarca no topo junto ao título
 col_h1, col_h2 = st.columns([1, 5])
 with col_h1:
     if logo_path:
@@ -904,23 +904,31 @@ elif menu == "EMISSÃO DE CHECKLIST":
                     st.error("Senha administrativa incorreta. Exclusão não autorizada.")
 
 # =====================================================================
-# MÓDULO 5: CADASTRO DE MATERIAIS
+# MÓDULO 5: CADASTRO DE MATERIAIS (COM CÓDIGO AUTOMÁTICO)
 # =====================================================================
 elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
+    
+    # Gera o próximo código sequencial automaticamente
+    try:
+        ultimo_codigo = int(df_estoque["Código"].max())
+        proximo_codigo = str(ultimo_codigo + 1).zfill(3)
+    except Exception:
+        proximo_codigo = "001"
+
     with st.form("form_novo_item"):
         c1, c2 = st.columns(2)
         with c1:
-            n_cod = st.text_input("Código Patrimonial (Ex: 068):")
+            st.text_input("Código Patrimonial Gerado Automaticamente:", value=proximo_codigo, disabled=True)
             n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:")
         with c2:
             n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Luz", "Informática", "Acessórios"])
             n_qtd = st.number_input("Quantidade Total Incorporada:", min_value=1, value=1, step=1)
         
         if st.form_submit_button("REGISTRAR EQUIPAMENTO NO ACERVO"):
-            if n_cod and n_nome:
+            if n_nome:
                 novo_df = pd.DataFrame([{
-                    "Código": n_cod.strip().zfill(3),
+                    "Código": proximo_codigo,
                     "Categoria": n_cat,
                     "Equipamento": n_nome.strip().upper(),
                     "Estoque Total": int(n_qtd),
@@ -929,10 +937,10 @@ elif menu == "CADASTRO DE MATERIAIS":
                 }])
                 df_estoque = pd.concat([df_estoque, novo_df], ignore_index=True)
                 salvar_estoque(df_estoque)
-                st.success(f"Item '{n_nome.upper()}' registrado com sucesso no banco de dados.")
+                st.success(f"Item '{n_nome.upper()}' registrado com sucesso com o código {proximo_codigo}!")
                 st.rerun()
             else:
-                st.error("Preencha o Código Patrimonial e a Descrição Técnica do equipamento.")
+                st.error("Preencha a Descrição Técnica do equipamento.")
 
 # =====================================================================
 # MÓDULO 6: HISTÓRICO DE OPERAÇÕES
