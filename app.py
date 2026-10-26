@@ -45,7 +45,7 @@ st.markdown("""
         padding: 1.2rem 1.8rem;
         border-radius: 6px;
         border-left: 5px solid #0d9488;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -511,13 +511,19 @@ if not st.session_state.autenticado:
     st.stop()
 
 # =====================================================================
-# CARREGAMENTO E BARRA LATERAL (MENU SUPERIOR ADAPTATIVO PARA TELEMÓVEL)
+# CARREGAMENTO E MENU SUPERIOR ADAPTATIVO PARA COMPUTADOR E TELEMÓVEL
 # =====================================================================
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
 
-# Removemos a barra lateral antiga e colocamos um seletor visível diretamente no topo para telemóveis
-st.markdown("### 🎛️ PAINEL OPERACIONAL A.C.S.")
+# Exibe a logomarca no topo caso exista
+col_h1, col_h2 = st.columns([1, 5])
+with col_h1:
+    if logo_path:
+        st.image(logo_path, width=120)
+with col_h2:
+    st.markdown("### 🎛️ PAINEL OPERACIONAL A.C.S.")
+
 menu = st.selectbox(
     "📍 SELECIONE O MÓDULO DO SISTEMA:",
     [
