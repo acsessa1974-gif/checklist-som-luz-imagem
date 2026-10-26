@@ -22,7 +22,7 @@ st.set_page_config(
 # CONFIGURAÇÃO DE SENHAS DO SISTEMA
 # =====================================================================
 SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
-SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios de saída
+SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios e itens
 
 # =====================================================================
 # ESTILIZAÇÃO CORPORATIVA (CSS) RESPONSIVA
@@ -516,7 +516,6 @@ if not st.session_state.autenticado:
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
 
-# Exibe a logomarca no topo junto ao título
 col_h1, col_h2 = st.columns([1, 5])
 with col_h1:
     if logo_path:
@@ -909,7 +908,6 @@ elif menu == "EMISSÃO DE CHECKLIST":
 elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
     
-    # Gera o próximo código sequencial automaticamente
     try:
         ultimo_codigo = int(df_estoque["Código"].max())
         proximo_codigo = str(ultimo_codigo + 1).zfill(3)
