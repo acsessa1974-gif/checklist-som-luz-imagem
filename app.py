@@ -110,6 +110,27 @@ st.markdown("""
         padding: 0.5rem 1rem;
         transition: all 0.2s ease;
     }
+
+    @media print {
+        [data-testid="stSidebar"], 
+        .no-print, 
+        .stButton, 
+        .stDownloadButton, 
+        [data-testid="stFormSubmitButton"],
+        .stRadio,
+        .stSelectbox,
+        .stTextInput,
+        [data-testid="stExpander"] {
+            display: none !important;
+        }
+        body, .main, .block-container {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -980,3 +1001,13 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
                             st.rerun()
     else:
         st.info("Não constam registros históricos de movimentação até o momento.")
+
+# =====================================================================
+# RODAPÉ / ASSINATURA DO SISTEMA
+# =====================================================================
+st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("""
+    <div class="no-print" style="text-align: center; color: #64748b; font-size: 0.85rem; border-top: 1px solid #334155; padding-top: 15px; margin-top: 30px;">
+        Desenvolvido por: <strong>Alexandre Sessa</strong>
+    </div>
+""", unsafe_allow_html=True)
