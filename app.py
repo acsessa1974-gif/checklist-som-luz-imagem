@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 import io
+import requests
 from datetime import datetime, time
 
 from reportlab.lib.pagesizes import A4
@@ -142,6 +143,9 @@ ARQUIVO_ESTOQUE = "estoque_acs_quantidades.xlsx"
 ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
 ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
 
+# Endereço fixo do galpão da A.C.S.
+ENDERECO_GALPAO = "Rua São Severino, 16, Taquara, Rio de Janeiro, RJ"
+
 def carregar_logo():
     pasta_script = os.path.dirname(os.path.abspath(__file__))
     for pasta in [pasta_script, os.getcwd(), "."]:
@@ -152,6 +156,42 @@ def carregar_logo():
         except Exception:
             pass
     return None
+
+def calcular_rota_osm(endereco_destino):
+    """Calcula a distância e o tempo estimado de percurso usando Nominatim e OSRM."""
+    try:
+        headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
+        
+        # 1. Obter coordenadas do Galpão (Taquara)
+        url_galpao = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(ENDERECO_GALPAO)}&format=json&limit=1"
+        res_g = requests.get(url_galpao, headers=headers, timeout=5).json()
+        if not res_g:
+            return None, None
+        lon_g, lat_g = float(res_g[0]['lon']), float(res_g[0]['lat'])
+        
+        # 2. Obter coordenadas do Destino
+        url_dest = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino + ', Rio de Janeiro, RJ')}ns&format=json&limit=1"
+        res_d = requests.get(url_dest, headers=headers, timeout=5).json()
+        if not res_d:
+            # Tentar busca mais genérica se a específica falhar
+            url_dest_geral = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino)}&format=json&limit=1"
+            res_d = requests.get(url_dest_geral, headers=headers, timeout=5).json()
+            if not res_d:
+                return None, None
+        lon_d, lat_d = float(res_d[0]['lon']), float(res_d[0]['lat'])
+        
+        # 3. Consultar OSRM para tempo e distância
+        url_osrm = f"http://router.project-osrm.org/route/v1/driving/{lon_g},{lat_g};{lon_d},{lat_d}?overview=false"
+        res_o = requests.get(url_osrm, timeout=5).json()
+        
+        if res_o.get("code") == "Ok":
+            rota = res_o["routes"][0]
+            distancia_km = round(rota["distance"] / 1000.0, 1)
+            duracao_min = round(rota["duration"] / 60.0)
+            return distancia_km, duracao_min
+    except Exception:
+        pass
+    return None, None
 
 def carregar_estoque():
     if os.path.exists(ARQUIVO_ESTOQUE):
@@ -164,7 +204,6 @@ def carregar_estoque():
             pass
 
     dados_iniciais = [
-        # Áudio — Caixas e Alto-Falantes
         ("001", "CAIXA SUBGRAVE DUPLA LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
         ("002", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
         ("003", "CAIXA SUBGRAVE SB800", 6, "Áudio"),
@@ -194,8 +233,6 @@ def carregar_estoque():
         ("027", "CAIXA ALTA YAMAHA DXR10", 2, "Áudio"),
         ("028", "CAIXA SUBGRAVE YAMAHA DXS12 MKII", 2, "Áudio"),
         ("029", "CAIXA ATTACK VRM1230A", 3, "Áudio"),
-
-        # Microfones e Kits de Bateria (Com Fios)
         ("030", "MICROFONE SHURE BETA 91A", 1, "Áudio"),
         ("031", "MICROFONE E604 SENNHEISER", 8, "Áudio"),
         ("032", "MICROFONE AKG D112", 1, "Áudio"),
@@ -209,8 +246,6 @@ def carregar_estoque():
         ("040", "MICROFONE SAMSON C02", 4, "Áudio"),
         ("041", "MICROFONE SAMSON C02H", 2, "Áudio"),
         ("042", "KIT DE MICROFONE DE BATERIA JTS", 1, "Áudio"),
-
-        # Sistemas Sem Fio (In-Ear e Microfones)
         ("043", "TRANSMISSOR SHURE PSM900 P9T", 1, "Áudio"),
         ("044", "BODYPACK SHURE PSM900 P9R L6 (656/692 MHZ)", 1, "Áudio"),
         ("045", "SISTEMA IN-EAR SENNHEISER EW300 G3 (516/558 MHZ)", 2, "Áudio"),
@@ -240,8 +275,6 @@ def carregar_estoque():
         ("069", "MICROFONE SEM FIO BASTÃO SHURE UR4", 8, "Áudio"),
         ("070", "TRANSMISSOR SHURE UR1M", 20, "Áudio"),
         ("071", "ANTENA RELACART", 6, "Áudio"),
-
-        # Distribuição de Fones e Multicabos (Snakes)
         ("072", "AMPLIFICADOR DE FONES POWERPLAY ASA", 1, "Áudio"),
         ("073", "AMPLIFICADOR DE FONES POWERPLAY EAM", 1, "Áudio"),
         ("074", "BODYPACK EAM", 8, "Áudio"),
@@ -254,8 +287,6 @@ def carregar_estoque():
         ("081", "MEDUSA DE BATERIA DE 12 VIAS", 2, "Áudio"),
         ("082", "MEDUSA SPLITADA DE 32 VIAS GRANDE", 1, "Áudio"),
         ("083", "MEDUSA DE 36 VIAS (RUIM)", 1, "Áudio"),
-
-        # Backline (Baterias, Cabeçotes e Caixas de Instrumentos)
         ("084", "BATERIA ACÚSTICA GRETSCH BLACK HAWK", 1, "Backline"),
         ("085", "BATERIA ACÚSTICA PEARL EXPORT", 1, "Backline"),
         ("086", "BATERIA ACÚSTICA PEARL VISION", 1, "Backline"),
@@ -268,8 +299,6 @@ def carregar_estoque():
         ("093", "CAIXA DE BAIXO WARWICK 1X15", 1, "Backline"),
         ("094", "AMPLIFICADOR DE GUITARRA FENDER FRONTMAN 212R", 1, "Backline"),
         ("095", "AMPLIFICADOR DE GUITARRA METEORO", 1, "Backline"),
-
-        # Mesas de Som (Consoles)
         ("096", "MESA DE SOM YAMAHA 01V", 3, "Áudio"),
         ("097", "MESA DE SOM YAMAHA LS9-32", 2, "Áudio"),
         ("098", "MESA DE SOM MIDAS M32", 1, "Áudio"),
@@ -282,8 +311,6 @@ def carregar_estoque():
         ("105", "MESA DE SOM SOUNDCRAFT SIGNATURE 12", 1, "Áudio"),
         ("106", "MESA DE SOM YAMAHA MG12XU", 1, "Áudio"),
         ("107", "MESA DE SOM SOUNDVOICE AUREA MD-12", 1, "Áudio"),
-
-        # Cabos, Energia e Acessórios
         ("108", "PEDESTAL", 41, "Acessórios"),
         ("109", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
         ("110", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
@@ -331,8 +358,6 @@ def carregar_estoque():
         ("152", "CABO XLR DE 30 METROS", 8, "Áudio"),
         ("153", "CABO XLR DE 10 METROS", 60, "Áudio"),
         ("154", "CABO XLR DE 5 METROS", 90, "Áudio"),
-        
-        # Cabos XLR para Barra Garden (Iluminação) e Outros
         ("155", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
         ("156", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
         ("157", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
@@ -366,6 +391,8 @@ def carregar_eventos():
                     "evento": str(row["Evento"]),
                     "responsavel": str(row["Responsável"]),
                     "endereco": str(row.get("Endereço", "-")),
+                    "distancia": str(row.get("Distância", "-")),
+                    "tempo_estimado": str(row.get("Tempo Estimado", "-")),
                     "hora_galpao": str(row.get("Hora Galpão", "-")),
                     "hora_evento": str(row.get("Hora Evento", "-")),
                     "data_saida": str(row["Data Saída"]),
@@ -384,6 +411,8 @@ def salvar_eventos(eventos):
             "Evento": ev["evento"],
             "Responsável": ev["responsavel"],
             "Endereço": ev.get("endereco", "-"),
+            "Distância": ev.get("distancia", "-"),
+            "Tempo Estimado": ev.get("tempo_estimado", "-"),
             "Hora Galpão": ev.get("hora_galpao", "-"),
             "Hora Evento": ev.get("hora_evento", "-"),
             "Data Saída": ev["data_saida"],
@@ -517,7 +546,8 @@ def gerar_pdf_checklist(ev):
     info_dados = [
         [Paragraph(f"<b>Documento Nº:</b> {ev['id']}", estilo_info), Paragraph(f"<b>Data de Saída:</b> {ev['data_saida']}", estilo_info)],
         [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)],
-        [Paragraph(f"<b>Endereço:</b> {ev.get('endereco', '-')}", estilo_info), Paragraph(f"<b>Horários:</b> Galpão: {ev.get('hora_galpao', '-')} | Evento: {ev.get('hora_evento', '-')}", estilo_info)]
+        [Paragraph(f"<b>Endereço:</b> {ev.get('endereco', '-')}", estilo_info), Paragraph(f"<b>Distância / Tempo:</b> {ev.get('distancia', '-')} | Estimado: {ev.get('tempo_estimado', '-')}", estilo_info)],
+        [Paragraph(f"<b>Horários:</b> Galpão: {ev.get('hora_galpao', '-')} | Evento: {ev.get('hora_evento', '-')}", estilo_info), Paragraph("", estilo_info)]
     ]
     t_info = Table(info_dados, colWidths=[280, 265])
     t_info.setStyle(TableStyle([
@@ -627,7 +657,7 @@ if not st.session_state.autenticado:
     st.stop()
 
 # =====================================================================
-# CARREGAMENTO E MENU SUPERIOR ADAPTATIVO PARA COMPUTADOR E TELEMÓVEL
+# CARREGAMENTO E MENU SUPERIOR ADAPTATIVO
 # =====================================================================
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
@@ -639,7 +669,6 @@ with col_h1:
 with col_h2:
     st.markdown("### 🎛️ PAINEL OPERACIONAL A.C.S.")
 
-# NOVA ORDEM DOS MÓDULOS SOLICITADA
 menu = st.selectbox(
     "📍 SELECIONE O MÓDULO DO SISTEMA:",
     [
@@ -708,7 +737,7 @@ with k4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================================================================
-# MÓDULO 1: VISÃO GERAL DO ACERVO (COM REMOÇÃO SEGURA)
+# MÓDULO 1: VISÃO GERAL DO ACERVO
 # =====================================================================
 if menu == "VISÃO GERAL DO ACERVO":
     st.markdown('<div class="section-header">Posição Consolidada do Acervo Técnico</div>', unsafe_allow_html=True)
@@ -777,10 +806,11 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL) — COM AUTOCOMPLETAR GOOGLE & HORÁRIOS
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL) — ROTA AUTOMÁTICA DA TAQUARA
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
+    st.caption(f"📍 Origem da Carga (Galpão A.C.S.): {ENDERECO_GALPAO}")
 
     col_ev1, col_ev2 = st.columns(2)
     with col_ev1:
@@ -788,12 +818,9 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
     with col_ev2:
-        # Campo de Endereço com componente HTML Google Places Autocomplete integrado
-        st.markdown("<strong>Endereço do Evento / Destino (Google Autocomplete):</strong>", unsafe_allow_html=True)
         endereco_evento = st.text_input(
-            "Endereço do Evento / Destino",
-            label_visibility="collapsed",
-            placeholder="Digite o endereço (Rua, Número, Bairro, Cidade)..."
+            "Endereço de Destino do Evento:",
+            placeholder="Ex: Av. Atlântica, 1702, Copacabana"
         )
         
         col_h1, col_h2 = st.columns(2)
@@ -801,6 +828,16 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
             hora_galpao = st.time_input("Horário Chegada Galpão:", time(8, 0))
         with col_h2:
             hora_evento = st.time_input("Horário Chegada Evento:", time(10, 0))
+
+    # Cálculo em tempo real da rota se houver endereço digitado
+    dist_calc, tempo_calc = None, None
+    if endereco_evento and len(endereco_evento) > 4:
+        with st.spinner("Calculando rota e tempo estimado a partir da Taquara..."):
+            dist_calc, tempo_calc = calcular_rota_osm(endereco_evento)
+        if dist_calc and tempo_calc:
+            st.success(f"🚗 Rota Calculada: **{dist_calc} km** | Tempo Estimado de Viagem: **~{tempo_calc} minutos**")
+        else:
+            st.info("ℹ️ Endereço inserido. O tempo exato será estimado (caso o endereço não seja localizado com precisão absoluta, o checklist será gerado normalmente).")
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
@@ -917,6 +954,8 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     "evento": nome_evento.upper(),
                     "responsavel": tecnico_resp.upper(),
                     "endereco": endereco_evento.upper() if endereco_evento else "NÃO INFORMADO",
+                    "distancia": f"{dist_calc} km" if dist_calc else "A calcular",
+                    "tempo_estimado": f"{tempo_calc} min" if tempo_calc else "A calcular",
                     "hora_galpao": hora_galpao.strftime("%H:%M"),
                     "hora_evento": hora_evento.strftime("%H:%M"),
                     "data_saida": data_saida.strftime("%d/%m/%Y"),
@@ -925,13 +964,13 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 eventos_ativos.append(novo_evento)
                 salvar_eventos(eventos_ativos)
                 
-                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Saída técnica autorizada | Destino: {endereco_evento}")
+                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Destino: {endereco_evento} | Tempo est.: {tempo_calc}min")
                 st.session_state.carrinho_saida = {}
                 st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 3: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL COM LOGOMARCA)
+# MÓDULO 3: EMISSÃO DE CHECKLIST (PDF COM ROTA E TEMPO)
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
@@ -1056,7 +1095,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 5: CADASTRO DE MATERIAIS (COM CÓDIGO AUTOMÁTICO)
+# MÓDULO 5: CADASTRO DE MATERIAIS
 # =====================================================================
 elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
