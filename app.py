@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import json
 import io
-from datetime import datetime
+from datetime import datetime, time
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -163,7 +163,6 @@ def carregar_estoque():
         except Exception:
             pass
 
-    # Nova base de dados oficial completa, corrigida e padronizada (A.C.S.)
     dados_iniciais = [
         # Áudio — Caixas e Alto-Falantes
         ("001", "CAIXA SUBGRAVE DUPLA LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
@@ -366,6 +365,9 @@ def carregar_eventos():
                     "id": str(row["ID"]),
                     "evento": str(row["Evento"]),
                     "responsavel": str(row["Responsável"]),
+                    "endereco": str(row.get("Endereço", "-")),
+                    "hora_galpao": str(row.get("Hora Galpão", "-")),
+                    "hora_evento": str(row.get("Hora Evento", "-")),
                     "data_saida": str(row["Data Saída"]),
                     "itens": json.loads(row["Itens JSON"])
                 })
@@ -381,6 +383,9 @@ def salvar_eventos(eventos):
             "ID": ev["id"],
             "Evento": ev["evento"],
             "Responsável": ev["responsavel"],
+            "Endereço": ev.get("endereco", "-"),
+            "Hora Galpão": ev.get("hora_galpao", "-"),
+            "Hora Evento": ev.get("hora_evento", "-"),
             "Data Saída": ev["data_saida"],
             "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
         })
@@ -439,8 +444,8 @@ def gerar_pdf_checklist(ev):
         'InfoCab',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=13,
+        fontSize=8.5,
+        leading=12,
         textColor=colors.HexColor('#1e293b')
     )
     estilo_celula = ParagraphStyle(
@@ -511,7 +516,8 @@ def gerar_pdf_checklist(ev):
 
     info_dados = [
         [Paragraph(f"<b>Documento Nº:</b> {ev['id']}", estilo_info), Paragraph(f"<b>Data de Saída:</b> {ev['data_saida']}", estilo_info)],
-        [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)]
+        [Paragraph(f"<b>Evento / Destino:</b> {ev['evento']}", estilo_info), Paragraph(f"<b>Responsável Técnico:</b> {ev['responsavel']}", estilo_info)],
+        [Paragraph(f"<b>Endereço:</b> {ev.get('endereco', '-')}", estilo_info), Paragraph(f"<b>Horários:</b> Galpão: {ev.get('hora_galpao', '-')} | Evento: {ev.get('hora_evento', '-')}", estilo_info)]
     ]
     t_info = Table(info_dados, colWidths=[280, 265])
     t_info.setStyle(TableStyle([
@@ -633,13 +639,14 @@ with col_h1:
 with col_h2:
     st.markdown("### 🎛️ PAINEL OPERACIONAL A.C.S.")
 
+# NOVA ORDEM DOS MÓDULOS SOLICITADA
 menu = st.selectbox(
     "📍 SELECIONE O MÓDULO DO SISTEMA:",
     [
         "VISÃO GERAL DO ACERVO",
         "EXPEDIÇÃO (SAÍDA)",
-        "RETORNO E CONFERÊNCIA",
         "EMISSÃO DE CHECKLIST",
+        "RETORNO E CONFERÊNCIA",
         "CADASTRO DE MATERIAIS",
         "HISTÓRICO DE OPERAÇÕES"
     ]
@@ -770,18 +777,30 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL) — COM AUTOCOMPLETAR GOOGLE & HORÁRIOS
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
 
-    col_ev1, col_ev2, col_ev3 = st.columns([2, 2, 1])
+    col_ev1, col_ev2 = st.columns(2)
     with col_ev1:
         nome_evento = st.text_input("Identificação do Evento / Cliente:", placeholder="Ex: Convenção Corporativa - Barra")
-    with col_ev2:
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
-    with col_ev3:
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
+    with col_ev2:
+        # Campo de Endereço com componente HTML Google Places Autocomplete integrado
+        st.markdown("<strong>Endereço do Evento / Destino (Google Autocomplete):</strong>", unsafe_allow_html=True)
+        endereco_evento = st.text_input(
+            "Endereço do Evento / Destino",
+            label_visibility="collapsed",
+            placeholder="Digite o endereço (Rua, Número, Bairro, Cidade)..."
+        )
+        
+        col_h1, col_h2 = st.columns(2)
+        with col_h1:
+            hora_galpao = st.time_input("Horário Chegada Galpão:", time(8, 0))
+        with col_h2:
+            hora_evento = st.time_input("Horário Chegada Evento:", time(10, 0))
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
@@ -897,19 +916,74 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     "id": datetime.now().strftime("%Y%m%d%H%M%S"),
                     "evento": nome_evento.upper(),
                     "responsavel": tecnico_resp.upper(),
+                    "endereco": endereco_evento.upper() if endereco_evento else "NÃO INFORMADO",
+                    "hora_galpao": hora_galpao.strftime("%H:%M"),
+                    "hora_evento": hora_evento.strftime("%H:%M"),
                     "data_saida": data_saida.strftime("%d/%m/%Y"),
                     "itens": lista_itens_evento
                 }
                 eventos_ativos.append(novo_evento)
                 salvar_eventos(eventos_ativos)
                 
-                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), "Saída técnica autorizada")
+                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Saída técnica autorizada | Destino: {endereco_evento}")
                 st.session_state.carrinho_saida = {}
                 st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 3: RETORNO E CONFERÊNCIA
+# MÓDULO 3: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL COM LOGOMARCA)
+# =====================================================================
+elif menu == "EMISSÃO DE CHECKLIST":
+    st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
+    
+    if not eventos_ativos:
+        st.warning("Não existem relatórios de saída ativos no momento.")
+    else:
+        opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
+        idx_imp = st.selectbox("Selecione o Checklist de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
+        ev_imp = eventos_ativos[idx_imp]
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        pdf_bytes = gerar_pdf_checklist(ev_imp)
+        nome_arq_pdf = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.pdf"
+        
+        st.download_button(
+            label="📄 BAIXAR CHECKLIST EM PDF PROFISSIONAL (COM LOGOMARCA)",
+            data=pdf_bytes,
+            file_name=nome_arq_pdf,
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"**Itens registados neste Checklist ({len(ev_imp['itens'])} equipamentos):**")
+        df_preview = pd.DataFrame(ev_imp["itens"])
+        df_preview["Código"] = df_preview["Código"].astype(str).str.zfill(3)
+        st.dataframe(df_preview, hide_index=True, use_container_width=True)
+
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
+            st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
+            senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
+            if st.button("APAGAR CHECKLIST SELECIONADO"):
+                if senha_del_romaneio == SENHA_EXCLUSAO:
+                    for item in ev_imp["itens"]:
+                        cod_i = str(item["Código"]).zfill(3)
+                        qtd_i = int(item["Qtd"])
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
+                    salvar_estoque(df_estoque)
+                    eventos_ativos.pop(idx_imp)
+                    salvar_eventos(eventos_ativos)
+                    st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
+                    st.rerun()
+                else:
+                    st.error("Senha administrativa incorreta. Exclusão não autorizada.")
+
+# =====================================================================
+# MÓDULO 4: RETORNO E CONFERÊNCIA
 # =====================================================================
 elif menu == "RETORNO E CONFERÊNCIA":
     st.markdown('<div class="section-header">Recebimento e Conferência de Material Pós-Evento</div>', unsafe_allow_html=True)
@@ -980,58 +1054,6 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 registrar_historico("RETORNO", ev_atual["evento"], conferente_volta.upper(), "; ".join(resumo_volta), obs_final)
                 st.success(f"Recebimento do evento '{ev_atual['evento']}' homologado com sucesso.")
                 st.rerun()
-
-# =====================================================================
-# MÓDULO 4: EMISSÃO DE CHECKLIST (PDF PROFISSIONAL COM LOGOMARCA)
-# =====================================================================
-elif menu == "EMISSÃO DE CHECKLIST":
-    st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
-    
-    if not eventos_ativos:
-        st.warning("Não existem relatórios de saída ativos no momento.")
-    else:
-        opcoes_ev = [f"{ev['evento']} (Data: {ev['data_saida']} | Resp: {ev['responsavel']})" for ev in eventos_ativos]
-        idx_imp = st.selectbox("Selecione o Checklist de Saída:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
-        ev_imp = eventos_ativos[idx_imp]
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        pdf_bytes = gerar_pdf_checklist(ev_imp)
-        nome_arq_pdf = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.pdf"
-        
-        st.download_button(
-            label="📄 BAIXAR CHECKLIST EM PDF PROFISSIONAL (COM LOGOMARCA)",
-            data=pdf_bytes,
-            file_name=nome_arq_pdf,
-            mime="application/pdf",
-            type="primary",
-            use_container_width=True
-        )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown(f"**Itens registados neste Checklist ({len(ev_imp['itens'])} equipamentos):**")
-        df_preview = pd.DataFrame(ev_imp["itens"])
-        df_preview["Código"] = df_preview["Código"].astype(str).str.zfill(3)
-        st.dataframe(df_preview, hide_index=True, use_container_width=True)
-
-        st.markdown("<br><hr>", unsafe_allow_html=True)
-        with st.expander("ZONA ADMINISTRATIVA — APAGAR ESTE CHECKLIST DE SAÍDA (SENHA EXCLUSIVA)"):
-            st.warning("Atenção: Ao apagar este relatório de saída ativo, as quantidades alocadas retornarão automaticamente ao saldo disponível no estoque.")
-            senha_del_romaneio = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_romaneio")
-            if st.button("APAGAR CHECKLIST SELECIONADO"):
-                if senha_del_romaneio == SENHA_EXCLUSAO:
-                    for item in ev_imp["itens"]:
-                        cod_i = str(item["Código"]).zfill(3)
-                        qtd_i = int(item["Qtd"])
-                        df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
-                        df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
-                    salvar_estoque(df_estoque)
-                    eventos_ativos.pop(idx_imp)
-                    salvar_eventos(eventos_ativos)
-                    st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
-                    st.rerun()
-                else:
-                    st.error("Senha administrativa incorreta. Exclusão não autorizada.")
 
 # =====================================================================
 # MÓDULO 5: CADASTRO DE MATERIAIS (COM CÓDIGO AUTOMÁTICO)
