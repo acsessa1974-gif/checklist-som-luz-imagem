@@ -157,32 +157,41 @@ def carregar_logo():
             pass
     return None
 
+def buscar_sugestoes_enderecos(termo):
+    """Consulta a API do Nominatim na internet para autocompletar endereços no Rio de Janeiro."""
+    if not termo or len(termo) < 3:
+        return []
+    try:
+        headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
+        # Restringe a busca para a região do Rio de Janeiro para maior precisão
+        url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(termo + ', Rio de Janeiro, RJ')}&format=json&limit=5"
+        res = requests.get(url, headers=headers, timeout=4).json()
+        return [item['display_name'] for item in res]
+    except Exception:
+        return []
+
 def calcular_rota_osm(endereco_destino):
-    """Calcula a distância e o tempo estimado de percurso usando Nominatim e OSRM."""
+    """Calcula a distância e o tempo estimado de percurso saindo da Taquara."""
     try:
         headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
         
-        # 1. Obter coordenadas do Galpão (Taquara)
+        # Coordenadas do Galpão
         url_galpao = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(ENDERECO_GALPAO)}&format=json&limit=1"
-        res_g = requests.get(url_galpao, headers=headers, timeout=5).json()
+        res_g = requests.get(url_galpao, headers=headers, timeout=4).json()
         if not res_g:
             return None, None
         lon_g, lat_g = float(res_g[0]['lon']), float(res_g[0]['lat'])
         
-        # 2. Obter coordenadas do Destino
-        url_dest = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino + ', Rio de Janeiro, RJ')}ns&format=json&limit=1"
-        res_d = requests.get(url_dest, headers=headers, timeout=5).json()
+        # Coordenadas do Destino
+        url_dest = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino)}&format=json&limit=1"
+        res_d = requests.get(url_dest, headers=headers, timeout=4).json()
         if not res_d:
-            # Tentar busca mais genérica se a específica falhar
-            url_dest_geral = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino)}&format=json&limit=1"
-            res_d = requests.get(url_dest_geral, headers=headers, timeout=5).json()
-            if not res_d:
-                return None, None
+            return None, None
         lon_d, lat_d = float(res_d[0]['lon']), float(res_d[0]['lat'])
         
-        # 3. Consultar OSRM para tempo e distância
+        # OSRM Roteamento
         url_osrm = f"http://router.project-osrm.org/route/v1/driving/{lon_g},{lat_g};{lon_d},{lat_d}?overview=false"
-        res_o = requests.get(url_osrm, timeout=5).json()
+        res_o = requests.get(url_osrm, timeout=4).json()
         
         if res_o.get("code") == "Ok":
             rota = res_o["routes"][0]
@@ -806,7 +815,7 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA DE MATERIAL) — ROTA AUTOMÁTICA DA TAQUARA
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA) — COM AUTOCOMPLETAR NA INTERNET & ROTA
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -818,26 +827,37 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
     with col_ev2:
-        endereco_evento = st.text_input(
-            "Endereço de Destino do Evento:",
-            placeholder="Ex: Av. Atlântica, 1702, Copacabana"
+        # Autocompletar inteligente via internet
+        termo_busca_end = st.text_input(
+            "Pesquisar Endereço de Destino (Autocompletar Online):",
+            placeholder="Digite parte do local ou rua (ex: Riocentro, Copacabana)..."
         )
         
+        sugestoes = []
+        if termo_busca_end and len(termo_busca_end) >= 3:
+            sugestoes = buscar_sugestoes_enderecos(termo_busca_end)
+
+        endereco_evento = termo_busca_end
+        if sugestoes:
+            endereco_selecionado = st.selectbox("📍 Selecione o endereço correspondente:", options=["--- Digite / Selecione ---"] + sugestoes)
+            if endereco_selecionado != "--- Digite / Selecione ---":
+                endereco_evento = endereco_selecionado
+
         col_h1, col_h2 = st.columns(2)
         with col_h1:
             hora_galpao = st.time_input("Horário Chegada Galpão:", time(8, 0))
         with col_h2:
             hora_evento = st.time_input("Horário Chegada Evento:", time(10, 0))
 
-    # Cálculo em tempo real da rota se houver endereço digitado
+    # Cálculo automático de rota e tempo
     dist_calc, tempo_calc = None, None
-    if endereco_evento and len(endereco_evento) > 4:
-        with st.spinner("Calculando rota e tempo estimado a partir da Taquara..."):
+    if endereco_evento and len(endereco_evento) > 5:
+        with st.spinner("Calculando distância e tempo de percurso a partir da Taquara..."):
             dist_calc, tempo_calc = calcular_rota_osm(endereco_evento)
         if dist_calc and tempo_calc:
             st.success(f"🚗 Rota Calculada: **{dist_calc} km** | Tempo Estimado de Viagem: **~{tempo_calc} minutos**")
         else:
-            st.info("ℹ️ Endereço inserido. O tempo exato será estimado (caso o endereço não seja localizado com precisão absoluta, o checklist será gerado normalmente).")
+            st.info("ℹ️ Endereço em processamento. O checklist será gerado normalmente.")
 
     st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
     
@@ -970,7 +990,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 3: EMISSÃO DE CHECKLIST (PDF COM ROTA E TEMPO)
+# MÓDULO 3: EMISSÃO DE CHECKLIST
 # =====================================================================
 elif menu == "EMISSÃO DE CHECKLIST":
     st.markdown('<div class="section-header">Emissão de Documentos Operacionais em PDF</div>', unsafe_allow_html=True)
