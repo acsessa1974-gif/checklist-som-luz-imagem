@@ -163,33 +163,41 @@ def buscar_sugestoes_enderecos(termo):
         return []
     try:
         headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
-        # Restringe a busca para a região do Rio de Janeiro para maior precisão
         url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(termo + ', Rio de Janeiro, RJ')}&format=json&limit=5"
         res = requests.get(url, headers=headers, timeout=4).json()
         return [item['display_name'] for item in res]
     except Exception:
         return []
 
+def formatar_tempo(minutos):
+    """Converte minutos totais em formato legível (ex: 75 min -> 1h 15min)."""
+    if not minutos:
+        return "A calcular"
+    if minutos < 60:
+        return f"{minutos} min"
+    horas = minutos // 60
+    mins_restantes = minutos % 60
+    if mins_restantes == 0:
+        return f"{horas}h"
+    return f"{horas}h {mins_restantes}min"
+
 def calcular_rota_osm(endereco_destino):
     """Calcula a distância e o tempo estimado de percurso saindo da Taquara."""
     try:
         headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
         
-        # Coordenadas do Galpão
         url_galpao = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(ENDERECO_GALPAO)}&format=json&limit=1"
         res_g = requests.get(url_galpao, headers=headers, timeout=4).json()
         if not res_g:
             return None, None
         lon_g, lat_g = float(res_g[0]['lon']), float(res_g[0]['lat'])
         
-        # Coordenadas do Destino
         url_dest = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(endereco_destino)}&format=json&limit=1"
         res_d = requests.get(url_dest, headers=headers, timeout=4).json()
         if not res_d:
             return None, None
         lon_d, lat_d = float(res_d[0]['lon']), float(res_d[0]['lat'])
         
-        # OSRM Roteamento
         url_osrm = f"http://router.project-osrm.org/route/v1/driving/{lon_g},{lat_g};{lon_d},{lat_d}?overview=false"
         res_o = requests.get(url_osrm, timeout=4).json()
         
@@ -815,7 +823,7 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA) — COM AUTOCOMPLETAR NA INTERNET & ROTA
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA) — FORMATO HORAS/MINUTOS
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
@@ -827,7 +835,6 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
     with col_ev2:
-        # Autocompletar inteligente via internet
         termo_busca_end = st.text_input(
             "Pesquisar Endereço de Destino (Autocompletar Online):",
             placeholder="Digite parte do local ou rua (ex: Riocentro, Copacabana)..."
@@ -849,13 +856,13 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         with col_h2:
             hora_evento = st.time_input("Horário Chegada Evento:", time(10, 0))
 
-    # Cálculo automático de rota e tempo
-    dist_calc, tempo_calc = None, None
+    dist_calc, tempo_min_calc = None, None
     if endereco_evento and len(endereco_evento) > 5:
         with st.spinner("Calculando distância e tempo de percurso a partir da Taquara..."):
-            dist_calc, tempo_calc = calcular_rota_osm(endereco_evento)
-        if dist_calc and tempo_calc:
-            st.success(f"🚗 Rota Calculada: **{dist_calc} km** | Tempo Estimado de Viagem: **~{tempo_calc} minutos**")
+            dist_calc, tempo_min_calc = calcular_rota_osm(endereco_evento)
+        if dist_calc is not None and tempo_min_calc is not None:
+            tempo_formatado = formatar_tempo(tempo_min_calc)
+            st.success(f"🚗 Rota Calculada: **{dist_calc} km** | Tempo Estimado de Viagem: **~{tempo_formatado}**")
         else:
             st.info("ℹ️ Endereço em processamento. O checklist será gerado normalmente.")
 
@@ -969,13 +976,15 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
 
                 salvar_estoque(df_estoque)
                 
+                tempo_str = formatar_tempo(tempo_min_calc) if tempo_min_calc is not None else "A calcular"
+                
                 novo_evento = {
                     "id": datetime.now().strftime("%Y%m%d%H%M%S"),
                     "evento": nome_evento.upper(),
                     "responsavel": tecnico_resp.upper(),
                     "endereco": endereco_evento.upper() if endereco_evento else "NÃO INFORMADO",
                     "distancia": f"{dist_calc} km" if dist_calc else "A calcular",
-                    "tempo_estimado": f"{tempo_calc} min" if tempo_calc else "A calcular",
+                    "tempo_estimado": tempo_str,
                     "hora_galpao": hora_galpao.strftime("%H:%M"),
                     "hora_evento": hora_evento.strftime("%H:%M"),
                     "data_saida": data_saida.strftime("%d/%m/%Y"),
@@ -984,7 +993,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 eventos_ativos.append(novo_evento)
                 salvar_eventos(eventos_ativos)
                 
-                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Destino: {endereco_evento} | Tempo est.: {tempo_calc}min")
+                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Destino: {endereco_evento} | Tempo est.: {tempo_str}")
                 st.session_state.carrinho_saida = {}
                 st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
