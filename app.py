@@ -142,8 +142,8 @@ st.markdown("""
 ARQUIVO_ESTOQUE = "estoque_acs_quantidades.xlsx"
 ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
 ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
+ARQUIVO_VISITAS = "visitas_tecnicas_acs.xlsx"
 
-# Endereço fixo do galpão da A.C.S.
 ENDERECO_GALPAO = "Rua São Severino, 16, Taquara, Rio de Janeiro, RJ"
 
 def carregar_logo():
@@ -158,7 +158,6 @@ def carregar_logo():
     return None
 
 def buscar_sugestoes_enderecos(termo):
-    """Consulta a API do Nominatim na internet para autocompletar endereços no Rio de Janeiro."""
     if not termo or len(termo) < 3:
         return []
     try:
@@ -170,7 +169,6 @@ def buscar_sugestoes_enderecos(termo):
         return []
 
 def formatar_tempo(minutos):
-    """Converte minutos totais em formato legível (ex: 75 min -> 1h 15min)."""
     if not minutos:
         return "A calcular"
     if minutos < 60:
@@ -182,10 +180,8 @@ def formatar_tempo(minutos):
     return f"{horas}h {mins_restantes}min"
 
 def calcular_rota_osm(endereco_destino):
-    """Calcula a distância e o tempo estimado de percurso saindo da Taquara."""
     try:
         headers = {'User-Agent': 'ACS_Logistica_App/1.0'}
-        
         url_galpao = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(ENDERECO_GALPAO)}&format=json&limit=1"
         res_g = requests.get(url_galpao, headers=headers, timeout=4).json()
         if not res_g:
@@ -328,57 +324,109 @@ def carregar_estoque():
         ("105", "MESA DE SOM SOUNDCRAFT SIGNATURE 12", 1, "Áudio"),
         ("106", "MESA DE SOM YAMAHA MG12XU", 1, "Áudio"),
         ("107", "MESA DE SOM SOUNDVOICE AUREA MD-12", 1, "Áudio"),
-        ("108", "PEDESTAL", 41, "Acessórios"),
-        ("109", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
-        ("110", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
-        ("111", "RÉGUA DE ENERGIA POWERCON / POWERCON", 4, "Acessórios"),
-        ("112", "PROCESSADOR BEHRINGER", 1, "Áudio"),
-        ("113", "PROCESSADOR DBX", 3, "Áudio"),
-        ("114", "AMPLIFICADOR CROWN XTI 1000", 1, "Áudio"),
-        ("115", "AMPLIFICADOR CROWN XTI 4000", 2, "Áudio"),
-        ("116", "AMPLIFICADOR CROWN XTI 6000", 1, "Áudio"),
-        ("117", "HOT SOUND HS PRO 5", 1, "Áudio"),
-        ("118", "HOT SOUND DIGILITE 6.4", 1, "Áudio"),
-        ("119", "HOT SOUND DIGILITE 8.0", 1, "Áudio"),
-        ("120", "YAMAHA P3200", 1, "Áudio"),
-        ("121", "AMPLIFICADOR CROWN / CARVER (RUIM)", 3, "Áudio"),
-        ("122", "STUDIO R Z2400", 1, "Áudio"),
-        ("123", "STUDIO R XD", 1, "Áudio"),
-        ("124", "STUDIO R X5", 1, "Áudio"),
-        ("125", "STUDIO R X12", 1, "Áudio"),
-        ("126", "APD 4004 THUNDELIGHT", 2, "Áudio"),
-        ("127", "POWERTEC LS", 4, "Áudio"),
-        ("128", "RACK DE AC AZUL (RUIM)", 1, "Acessórios"),
-        ("129", "RACK DE AC NOVO", 1, "Acessórios"),
-        ("130", "CENTRAL DE ENERGIA", 4, "Acessórios"),
-        ("131", "ISOLADOR DE ÁUDIO GX200", 2, "Áudio"),
-        ("132", "DIRECT BOX WHIRLWIND IMP2", 5, "Áudio"),
-        ("133", "DIRECT BOX WALDMAN PASSIVA DI-1PS", 5, "Áudio"),
-        ("134", "DIRECT BOX WIRECONEX WDI600", 4, "Áudio"),
-        ("135", "DIRECT BOX WIRECONEX WDI500", 20, "Áudio"),
-        ("136", "DIRECT BOX WALDMAN ATIVA DI-1A", 7, "Áudio"),
-        ("137", "DIRECT BOX SAMSON ATIVA S. DIRECT", 3, "Áudio"),
-        ("138", "DIRECT BOX SAMSON ATIVA S. DIRECT PLUS", 1, "Áudio"),
-        ("139", "MOUSE PAD", 1, "Informática"),
-        ("140", "CPU WYSE DELL", 1, "Informática"),
-        ("141", "MONITOR DELL P2418HT", 1, "Informática"),
-        ("142", "FONTE DE MONITOR HA65NS5-00", 1, "Informática"),
-        ("143", "CABO RJ45", 1, "Informática"),
-        ("144", "CABO DISPLAYPORT", 1, "Informática"),
-        ("145", "CABO USB-SS DELL", 1, "Informática"),
-        ("146", "CABO DE FORÇA PARA FONTE", 1, "Informática"),
-        ("147", "JUMPER SPEAKON (4 VIAS - ALTAS)", 18, "Áudio"),
-        ("148", "JUMPER SPEAKON (2 VIAS - SUB)", 6, "Áudio"),
-        ("149", "CABO SPEAKON (4 VIAS - ALTAS)", 8, "Áudio"),
-        ("150", "CABO SPEAKON (2 VIAS - SUB)", 8, "Áudio"),
-        ("151", "CABO POWERCON / POWERCON", 20, "Acessórios"),
-        ("152", "CABO XLR DE 30 METROS", 8, "Áudio"),
-        ("153", "CABO XLR DE 10 METROS", 60, "Áudio"),
-        ("154", "CABO XLR DE 5 METROS", 90, "Áudio"),
-        ("155", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
-        ("156", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
-        ("157", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
-        ("158", "CABO XLR DA BARRA GARDEN - SINGELOS", 4, "Luz")
+        ("108", "MESA DMX MINI AVOLITES 1024", 2, "Luz"),
+        ("109", "MESA DE LUZ AVOLITES", 2, "Luz"),
+        ("110", "MESA DE LUZ GRAND MA", 1, "Luz"),
+        ("111", "DMX CONROLLER", 1, "Luz"),
+        ("112", "STROBO LED RGBW FITA", 16, "Luz"),
+        ("113", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE", 1, "Luz"),
+        ("114", "MAIN POWER GRANDE", 2, "Luz"),
+        ("115", "MAIN POWER PEQUENO", 2, "Luz"),
+        ("116", "SPLIT DE SINAL", 5, "Luz"),
+        ("117", "SPLIT WIRELESS", 1, "Luz"),
+        ("118", "PAR LED PEQUENO RGB ANTIGO", 40, "Luz"),
+        ("119", "PAR LED RGBW NOVO", 60, "Luz"),
+        ("120", "PAR LED GRANDE RGB ANTIGO", 29, "Luz"),
+        ("121", "MINI BRUT DE LED", 4, "Luz"),
+        ("122", "MINI CANHÃO DE LUZ", 1, "Luz"),
+        ("123", "PAR LED BLINDADO", 31, "Luz"),
+        ("124", "PAR 38", 60, "Luz"),
+        ("125", "REFLETOR AR111", 70, "Luz"),
+        ("126", "MOVING BEAM 230 BORDA DE LED", 6, "Luz"),
+        ("127", "MOVING BEAM 9R", 13, "Luz"),
+        ("128", "MOVING BEAM 7R", 5, "Luz"),
+        ("129", "COB 200W LEVE", 2, "Luz"),
+        ("130", "COB 200W BLINDADO", 8, "Luz"),
+        ("131", "VARAS DE AR 1M", 8, "Luz"),
+        ("132", "VARAS DE AR 2M", 8, "Luz"),
+        ("133", "PAR LED SPOT PRETO", 10, "Luz"),
+        ("134", "PAR LED SPOT BRANCO", 10, "Luz"),
+        ("135", "REFLETOR DE 300W", 3, "Luz"),
+        ("136", "REFLETOR VERDE", 10, "Luz"),
+        ("137", "REFLETOR BRANCO QUENTE DE 100W", 2, "Luz"),
+        ("138", "REFLETOR BRANCO QUENTE 200W", 1, "Luz"),
+        ("139", "RIBALTA RGBW", 24, "Luz"),
+        ("140", "CANHÃO SKY WALKER", 2, "Luz"),
+        ("141", "RIBALTA ANTIGA", 10, "Luz"),
+        ("142", "GARRA DE PAR LED", 76, "Luz"),
+        ("143", "GARRA DE MOVING", 65, "Luz"),
+        ("144", "MULTIVIAS DE XLR", 1, "Luz"),
+        ("145", "MÁQUINA DE BOLHAS", 2, "Luz"),
+        ("146", "PEDESTAL", 41, "Acessórios"),
+        ("147", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
+        ("148", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
+        ("149", "RÉGUA DE ENERGIA POWERCON / POWERCON", 4, "Acessórios"),
+        ("150", "PROCESSADOR BEHRINGER", 1, "Áudio"),
+        ("151", "PROCESSADOR DBX", 3, "Áudio"),
+        ("152", "AMPLIFICADOR CROWN XTI 1000", 1, "Áudio"),
+        ("153", "AMPLIFICADOR CROWN XTI 4000", 2, "Áudio"),
+        ("154", "AMPLIFICADOR CROWN XTI 6000", 1, "Áudio"),
+        ("155", "HOT SOUND HS PRO 5", 1, "Áudio"),
+        ("156", "HOT SOUND DIGILITE 6.4", 1, "Áudio"),
+        ("157", "HOT SOUND DIGILITE 8.0", 1, "Áudio"),
+        ("158", "YAMAHA P3200", 1, "Áudio"),
+        ("159", "AMPLIFICADOR CROWN / CARVER (RUIM)", 3, "Áudio"),
+        ("160", "STUDIO R Z2400", 1, "Áudio"),
+        ("161", "STUDIO R XD", 1, "Áudio"),
+        ("162", "STUDIO R X5", 1, "Áudio"),
+        ("163", "STUDIO R X12", 1, "Áudio"),
+        ("164", "APD 4004 THUNDELIGHT", 2, "Áudio"),
+        ("165", "POWERTEC LS", 4, "Áudio"),
+        ("166", "RACK DE AC AZUL (RUIM)", 1, "Acessórios"),
+        ("167", "RACK DE AC NOVO", 1, "Acessórios"),
+        ("168", "CENTRAL DE ENERGIA", 4, "Acessórios"),
+        ("169", "ISOLADOR DE ÁUDIO GX200", 2, "Áudio"),
+        ("170", "DIRECT BOX WHIRLWIND IMP2", 5, "Áudio"),
+        ("171", "DIRECT BOX WALDMAN PASSIVA DI-1PS", 5, "Áudio"),
+        ("172", "DIRECT BOX WIRECONEX WDI600", 4, "Áudio"),
+        ("173", "DIRECT BOX WIRECONEX WDI500", 20, "Áudio"),
+        ("174", "DIRECT BOX WALDMAN ATIVA DI-1A", 7, "Áudio"),
+        ("175", "DIRECT BOX SAMSON ATIVA S. DIRECT", 3, "Áudio"),
+        ("176", "DIRECT BOX SAMSON ATIVA S. DIRECT PLUS", 1, "Áudio"),
+        ("177", "MOUSE PAD", 1, "Informática"),
+        ("178", "CPU WYSE DELL", 1, "Informática"),
+        ("179", "MONITOR DELL P2418HT", 1, "Informática"),
+        ("180", "FONTE DE MONITOR HA65NS5-00", 1, "Informática"),
+        ("181", "CABO RJ45", 1, "Informática"),
+        ("182", "CABO DISPLAYPORT", 1, "Informática"),
+        ("183", "CABO USB-SS DELL", 1, "Informática"),
+        ("184", "CABO DE FORÇA PARA FONTE", 1, "Informática"),
+        ("185", "JUMPER SPEAKON (4 VIAS - ALTAS)", 18, "Áudio"),
+        ("186", "JUMPER SPEAKON (2 VIAS - SUB)", 6, "Áudio"),
+        ("187", "CABO SPEAKON (4 VIAS - ALTAS)", 8, "Áudio"),
+        ("188", "CABO SPEAKON (2 VIAS - SUB)", 8, "Áudio"),
+        ("189", "CABO POWERCON / POWERCON", 20, "Acessórios"),
+        ("190", "CABO XLR DE 30 METROS", 8, "Áudio"),
+        ("191", "CABO XLR DE 10 METROS", 60, "Áudio"),
+        ("192", "CABO XLR DE 5 METROS", 90, "Áudio"),
+        ("193", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
+        ("194", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
+        ("195", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
+        ("196", "CABO XLR DA BARRA GARDEN - SINGELOS", 4, "Luz"),
+        ("197", "CABO XLR DE SINAL", 200, "Luz"),
+        ("198", "CABO PP", 200, "Acessórios"),
+        ("199", "CABO PARALELO Y", 14, "Acessórios"),
+        ("200", "CENTOPÉIA GRANDE DE 2,5 MM", 11, "Acessórios"),
+        ("201", "CENTOPÉIA DE 1,5 MM TAMANHOS VARIADOS", 10, "Acessórios"),
+        ("202", "CANHÃO SKY WALKER COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("203", "STROBO LED RGBW FITA COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("204", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE COM DEFEITO", 1, "Equipamentos com Defeito"),
+        ("205", "MÁQUINA DE FUMAÇA HAZE COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("206", "MOVING BEAM 230 BORDA DE LED COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("207", "MOVING BEAM 9R COM DEFEITO", 3, "Equipamentos com Defeito"),
+        ("208", "MOVING BEAM 7R COM DEFEITO", 8, "Equipamentos com Defeito"),
+        ("209", "LASER COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("210", "STROBO ANTIGO COM DEFEITO", 2, "Equipamentos com Defeito")
     ]
 
     lista_estoque = [{
@@ -437,6 +485,17 @@ def salvar_eventos(eventos):
         })
     pd.DataFrame(dados_tabela).to_excel(ARQUIVO_EVENTOS, index=False)
 
+def carregar_visitas():
+    if os.path.exists(ARQUIVO_VISITAS):
+        try:
+            return pd.read_excel(ARQUIVO_VISITAS).to_dict("records")
+        except Exception:
+            return []
+    return []
+
+def salvar_visitas(visitas):
+    pd.DataFrame(visitas).to_excel(ARQUIVO_VISITAS, index=False)
+
 def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-"):
     data_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
     novo_reg = pd.DataFrame([{
@@ -456,77 +515,19 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
 
 def gerar_pdf_checklist(ev):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=25,
-        leftMargin=25,
-        topMargin=25,
-        bottomMargin=25
-    )
-    
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     elementos = []
     styles = getSampleStyleSheet()
     
-    estilo_titulo = ParagraphStyle(
-        'TituloDoc',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=15,
-        textColor=colors.HexColor('#0f172a'),
-        alignment=1
-    )
-    estilo_cab_empresa = ParagraphStyle(
-        'CabEmpresa',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=14,
-        textColor=colors.white,
-        alignment=0
-    )
-    estilo_info = ParagraphStyle(
-        'InfoCab',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8.5,
-        leading=12,
-        textColor=colors.HexColor('#1e293b')
-    )
-    estilo_celula = ParagraphStyle(
-        'CelulaTabela',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#0f172a')
-    )
-    estilo_celula_bold = ParagraphStyle(
-        'CelulaTabelaBold',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.HexColor('#0f172a'),
-        alignment=1
-    )
-    estilo_th = ParagraphStyle(
-        'TabelaHeader',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=8.5,
-        leading=11,
-        textColor=colors.white,
-        alignment=1
-    )
+    estilo_titulo = ParagraphStyle('TituloDoc', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a'), alignment=1)
+    estilo_cab_empresa = ParagraphStyle('CabEmpresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.white, alignment=0)
+    estilo_info = ParagraphStyle('InfoCab', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=12, textColor=colors.HexColor('#1e293b'))
+    estilo_celula = ParagraphStyle('CelulaTabela', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a'))
+    estilo_celula_bold = ParagraphStyle('CelulaTabelaBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a'), alignment=1)
+    estilo_th = ParagraphStyle('TabelaHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.white, alignment=1)
 
     logo_path = carregar_logo()
-    texto_empresa = Paragraph(
-        "<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/>"
-        "<font size=8 color='#94a3b8'>A.C.S. SOM, LUZ E IMAGEM — GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>",
-        estilo_cab_empresa
-    )
+    texto_empresa = Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/><font size=8 color='#94a3b8'>A.C.S. SOM, LUZ E IMAGEM — GESTÃO TÉCNICA E LOGÍSTICA DE EVENTOS</font>", estilo_cab_empresa)
     
     bloco_logo = Paragraph("<b>A.C.S.</b>", estilo_cab_empresa)
     if logo_path:
@@ -556,7 +557,6 @@ def gerar_pdf_checklist(ev):
     ]))
     elementos.append(t_cab)
     elementos.append(Spacer(1, 10))
-
     elementos.append(Paragraph("<b>CHECKLIST DE EXPEDIÇÃO E CONFERÊNCIA TÉCNICA</b>", estilo_titulo))
     elementos.append(Spacer(1, 8))
 
@@ -642,6 +642,102 @@ def gerar_texto_historico(df_h):
         linhas.append("----------------------------------------------------------------------")
     return "\n".join(linhas)
 
+KITS_PRONTOS = {
+    "CASE A IN EAR RELACART": [
+        {"termo": "RELACART PM-320", "qtd": 3},
+        {"termo": "BODYPACK RELACART PM-320R", "qtd": 6},
+        {"termo": "COMBINADOR RELACART TAC4", "qtd": 1},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "ANTENA IN-EAR RELACART R-32U", "qtd": 1},
+        {"termo": "CABO POWERCON / POWERCON", "qtd": 1},
+        {"termo": "ANTENA RELACART", "qtd": 1}
+    ],
+    "CASE B IN EAR RELACART": [
+        {"termo": "RELACART PM-320", "qtd": 2},
+        {"termo": "BODYPACK RELACART PM-320R", "qtd": 4},
+        {"termo": "COMBINADOR RELACART TAC4", "qtd": 1},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "ANTENA IN-EAR RELACART R-32U", "qtd": 1},
+        {"termo": "CABO POWERCON / POWERCON", "qtd": 1},
+        {"termo": "ANTENA RELACART", "qtd": 1}
+    ],
+    "CASE A MICROFONES SHURE UR4D+": [
+        {"termo": "BASE SHURE UR4D+", "qtd": 3},
+        {"termo": "BASE SHURE UR4D", "qtd": 1},
+        {"termo": "MICROFONE SEM FIO BASTÃO SHURE UR4", "qtd": 4},
+        {"termo": "TRANSMISSOR SHURE UR1M", "qtd": 4},
+        {"termo": "MICROFONE SHURE SM58", "qtd": 4},
+        {"termo": "ANTENA RELACART ATIVA", "qtd": 2},
+        {"termo": "ANTENA RELACART", "qtd": 2},
+        {"termo": "CABO POWERCON / POWERCON", "qtd": 1},
+        {"termo": "SUB-SNAKE DE 8 VIAS", "qtd": 1},
+        {"termo": "CABO USB-SS DELL", "qtd": 1},
+        {"termo": "CABO RJ45", "qtd": 1},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "JUMPER SPEAKON (4 VIAS - ALTAS)", "qtd": 8}
+    ],
+    "CASE B MICROFONES SHURE UR4D+": [
+        {"termo": "BASE SHURE UR4D+", "qtd": 3},
+        {"termo": "BASE SHURE UR4D", "qtd": 1},
+        {"termo": "MICROFONE SEM FIO BASTÃO SHURE UR4", "qtd": 4},
+        {"termo": "TRANSMISSOR SHURE UR1M", "qtd": 4},
+        {"termo": "MICROFONE SHURE SM58", "qtd": 4},
+        {"termo": "ANTENA RELACART ATIVA", "qtd": 2},
+        {"termo": "ANTENA RELACART", "qtd": 2},
+        {"termo": "CABO POWERCON / POWERCON", "qtd": 1},
+        {"termo": "SUB-SNAKE DE 8 VIAS", "qtd": 1},
+        {"termo": "CABO USB-SS DELL", "qtd": 1},
+        {"termo": "CABO RJ45", "qtd": 1},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "JUMPER SPEAKON (4 VIAS - ALTAS)", "qtd": 8}
+    ],
+    "CASE C MICROFONES SHURE UR4D+": [
+        {"termo": "BASE SHURE UR4D+", "qtd": 3},
+        {"termo": "BASE SHURE UR4D", "qtd": 1},
+        {"termo": "TRANSMISSOR SHURE UR1M", "qtd": 8},
+        {"termo": "ANTENA RELACART", "qtd": 2},
+        {"termo": "ANTENA RELACART ATIVA", "qtd": 2},
+        {"termo": "CABO POWERCON / POWERCON", "qtd": 1},
+        {"termo": "SUB-SNAKE DE 8 VIAS", "qtd": 1},
+        {"termo": "CABO USB-SS DELL", "qtd": 1},
+        {"termo": "CABO RJ45", "qtd": 1},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "JUMPER SPEAKON (4 VIAS - ALTAS)", "qtd": 8}
+    ],
+    "BAÚ DE CABOS A": [
+        {"termo": "RÉGUA DE ENERGIA POWERCON", "qtd": 7},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "DIRECT BOX WIRECONEX WDI500", "qtd": 10},
+        {"termo": "DIRECT BOX WALDMAN ATIVA DI-1A", "qtd": 2},
+        {"termo": "ISOLADOR DE ÁUDIO GX200", "qtd": 1},
+        {"termo": "CABO XLR DE 10 METROS", "qtd": 20},
+        {"termo": "CABO XLR DE 5 METROS", "qtd": 30},
+        {"termo": "SUB-SNAKE DE 8 VIAS", "qtd": 2},
+        {"termo": "SUB-SNAKE DE 12 VIAS", "qtd": 1},
+        {"termo": "MEDUSA DE BATERIA DE 12 VIAS", "qtd": 2},
+        {"termo": "MICROFONE SAMSON C02", "qtd": 2},
+        {"termo": "MICROFONE SAMSON C02H", "qtd": 2},
+        {"termo": "MICROFONE E604 SENNHEISER", "qtd": 4},
+        {"termo": "MICROFONE SHURE BETA 91A", "qtd": 1}
+    ],
+    "BAÚ DE CABOS B": [
+        {"termo": "RÉGUA DE ENERGIA POWERCON", "qtd": 7},
+        {"termo": "RÉGUA DE ENERGIA POWERCON SAS", "qtd": 1},
+        {"termo": "DIRECT BOX WIRECONEX WDI500", "qtd": 10},
+        {"termo": "DIRECT BOX WALDMAN ATIVA DI-1A", "qtd": 2},
+        {"termo": "ISOLADOR DE ÁUDIO GX200", "qtd": 1},
+        {"termo": "CABO XLR DE 10 METROS", "qtd": 20},
+        {"termo": "CABO XLR DE 5 METROS", "qtd": 30},
+        {"termo": "SUB-SNAKE DE 8 VIAS", "qtd": 2},
+        {"termo": "SUB-SNAKE DE 12 VIAS", "qtd": 1},
+        {"termo": "MEDUSA DE BATERIA DE 12 VIAS", "qtd": 2},
+        {"termo": "MICROFONE AKG D112", "qtd": 1},
+        {"termo": "MICROFONE SAMSON C02", "qtd": 2},
+        {"termo": "MICROFONE SAMSON C02H", "qtd": 2},
+        {"termo": "MICROFONE E604 SENNHEISER", "qtd": 4}
+    ]
+}
+
 # =====================================================================
 # AUTENTICAÇÃO CORPORATIVA
 # =====================================================================
@@ -678,6 +774,7 @@ if not st.session_state.autenticado:
 # =====================================================================
 df_estoque = carregar_estoque()
 eventos_ativos = carregar_eventos()
+visitas_tecnicas = carregar_visitas()
 
 col_h1, col_h2 = st.columns([1, 5])
 with col_h1:
@@ -694,7 +791,8 @@ menu = st.selectbox(
         "EMISSÃO DE CHECKLIST",
         "RETORNO E CONFERÊNCIA",
         "CADASTRO DE MATERIAIS",
-        "HISTÓRICO DE OPERAÇÕES"
+        "HISTÓRICO DE OPERAÇÕES",
+        "VISITA TÉCNICA"
     ]
 )
 
@@ -763,7 +861,7 @@ if menu == "VISÃO GERAL DO ACERVO":
     with c1:
         busca = st.text_input("Pesquisar equipamento por descrição ou código:", placeholder="Digite o modelo, marca ou código...")
     with c2:
-        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Backline", "Luz", "Informática", "Acessórios"])
+        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
     with c3:
         f_disp = st.selectbox("Status de Alocação:", ["Todos os Itens", "Somente Alocados em Eventos", "Somente Disponíveis na Base"])
 
@@ -823,10 +921,10 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA) — FORMATO HORAS/MINUTOS
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA)
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
-    st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento (Kits e Itens)</div>', unsafe_allow_html=True)
     st.caption(f"📍 Origem da Carga (Galpão A.C.S.): {ENDERECO_GALPAO}")
 
     col_ev1, col_ev2 = st.columns(2)
@@ -856,6 +954,25 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         with col_h2:
             hora_evento = st.time_input("Horário Chegada Evento:", time(10, 0))
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("📦 **ADICIONAR KITS PRONTOS AO CHECKLIST:**", unsafe_allow_html=True)
+    col_kit1, col_kit2 = st.columns([3, 1])
+    with col_kit1:
+        kit_selecionado = st.selectbox("Selecione um Kit para adicionar:", options=["--- Selecione um Kit ---"] + list(KITS_PRONTOS.keys()))
+    with col_kit2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("ADICIONAR KIT", use_container_width=True):
+            if kit_selecionado != "--- Selecione um Kit ---":
+                itens_kit = KITS_PRONTOS[kit_selecionado]
+                for ik in itens_kit:
+                    match_eq = df_estoque[df_estoque["Equipamento"].str.contains(ik["termo"], case=False, na=False)]
+                    if not match_eq.empty:
+                        cod_m = match_eq.iloc[0]["Código"]
+                        atual = st.session_state.carrinho_saida.get(cod_m, 0)
+                        st.session_state.carrinho_saida[cod_m] = atual + ik["qtd"]
+                st.success(f"Kit '{kit_selecionado}' adicionado com sucesso ao carrinho!")
+                st.rerun()
+
     dist_calc, tempo_min_calc = None, None
     if endereco_evento and len(endereco_evento) > 5:
         with st.spinner("Calculando distância e tempo de percurso a partir da Taquara..."):
@@ -866,7 +983,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         else:
             st.info("ℹ️ Endereço em processamento. O checklist será gerado normalmente.")
 
-    st.markdown('<div class="section-header">Pesquisa e Seleção de Equipamentos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Pesquisa e Seleção Manual de Equipamentos</div>', unsafe_allow_html=True)
     
     col_busca_s, col_cat_s = st.columns([2, 1])
     with col_busca_s:
@@ -875,7 +992,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
             placeholder="Digite qualquer parte do nome ou código (ex: SM58, Line Array, XLR, Moving)..."
         )
     with col_cat_s:
-        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Informática", "Acessórios"])
+        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
 
     df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy()
     
@@ -948,7 +1065,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
         if not nome_evento or not tecnico_resp:
             st.error("Preenchimento obrigatório: informe a Identificação do Evento e o Responsável Técnico.")
         elif df_escolhidos.empty:
-            st.error("Nenhum material selecionado. Pesquise o equipamento e informe a quantidade na coluna 'QTD A EXPEDIR'.")
+            st.error("Nenhum material selecionado. Pesquise o equipamento ou selecione um kit para expedir.")
         else:
             erro_qtd = False
             for _, row in df_escolhidos.iterrows():
@@ -1141,7 +1258,7 @@ elif menu == "CADASTRO DE MATERIAIS":
             st.text_input("Código Patrimonial Gerado Automaticamente:", value=proximo_codigo, disabled=True)
             n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:")
         with c2:
-            n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Backline", "Luz", "Informática", "Acessórios"])
+            n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
             n_qtd = st.number_input("Quantidade Total Incorporada:", min_value=1, value=1, step=1)
         
         if st.form_submit_button("REGISTRAR EQUIPAMENTO NO ACERVO"):
@@ -1231,6 +1348,73 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
                             st.rerun()
     else:
         st.info("Não constam registros históricos de movimentação até o momento.")
+
+# =====================================================================
+# MÓDULO 7: VISITA TÉCNICA (QUESTIONÁRIO / GABARITO)
+# =====================================================================
+elif menu == "VISITA TÉCNICA":
+    st.markdown('<div class="section-header">Gabarito de Visita Técnica e Levantamento de Locação</div>', unsafe_allow_html=True)
+    
+    with st.form("form_visita_tecnica"):
+        col_vt1, col_vt2 = st.columns(2)
+        with col_vt1:
+            vt_resp = st.text_input("Responsável pela Visita Técnica:")
+            vt_local = st.text_input("Local do Evento:")
+            vt_dia_horario = st.text_input("Dia do Evento, Horário e Passagem:", placeholder="Ex: Sábado, 20h, Soundcheck às 17h")
+            vt_eletrica = st.text_input("Elétrica, Responsável e Distância:", placeholder="Ex: Trifásico, Seu João, próximo ao palco")
+            vt_pre_montagem = st.text_input("Pré Montagem:", placeholder="Detalhes sobre a pré-montagem")
+            vt_pe_direito = st.text_input("Pé Direito:", placeholder="Ex: 6 metros")
+            vt_painel_led = st.text_input("Painel de LED:", placeholder="Especificações ou dimensões")
+            vt_iluminacao = st.text_input("Iluminação:", placeholder="Pontos de luz, varas, etc.")
+        with col_vt2:
+            vt_sonorizacao = st.text_input("Sonorização:", placeholder="Acústica, pontos de PA, etc.")
+            vt_riders = st.text_input("Riders e Contatos:", placeholder="Nome e telefone dos técnicos contratantes")
+            vt_palco = st.text_input("Palco (Tamanho, Altura e Cor):", placeholder="Ex: 10x8m, altura 1.2m, preto")
+            vt_doca = st.text_input("Doca (Se entra o caminhão):", placeholder="Sim / Não / Detalhes de acesso")
+            vt_dificuldades = st.text_input("Escada, Corredor ou Outras Dificuldades:", placeholder="Ex: 2 lances de escada estreita")
+            vt_quadro_energia = st.text_input("Distância do Quadro de Energia ou Gerador:", placeholder="Ex: 35 metros")
+            vt_obs = st.text_area("Observações Gerais:")
+
+        if st.form_submit_button("REGISTRAR E SALVAR VISITA TÉCNICA"):
+            if not vt_local or not vt_resp:
+                st.error("Preencha pelo menos os campos de Local e Responsável pela Visita.")
+            else:
+                nova_visita = {
+                    "Data Registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "Responsável": vt_resp.upper(),
+                    "Local": vt_local.upper(),
+                    "Horário/Passagem": vt_dia_horario,
+                    "Elétrica": vt_eletrica,
+                    "Pré Montagem": vt_pre_montagem,
+                    "Pé Direito": vt_pe_direito,
+                    "Painel LED": vt_painel_led,
+                    "Iluminação": vt_iluminacao,
+                    "Sonorização": vt_sonorizacao,
+                    "Riders/Contatos": vt_riders,
+                    "Palco": vt_palco,
+                    "Doca/Caminhão": vt_doca,
+                    "Dificuldades": vt_dificuldades,
+                    "Distância Energia": vt_quadro_energia,
+                    "Observações": vt_obs
+                }
+                visitas_tecnicas.append(nova_visita)
+                salvar_visitas(visitas_tecnicas)
+                st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso!")
+                st.rerun()
+
+    if visitas_tecnicas:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Histórico de Visitas Técnicas Registadas</div>', unsafe_allow_html=True)
+        df_v = pd.DataFrame(visitas_tecnicas)
+        st.dataframe(df_v, hide_index=True, use_container_width=True)
+
+        with open(ARQUIVO_VISITAS, "rb") as f:
+            st.download_button(
+                "EXPORTAR VISITAS TÉCNICAS EM EXCEL (.XLSX)",
+                f,
+                file_name=f"visitas_tecnicas_acs_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                use_container_width=True
+            )
 
 # =====================================================================
 # RODAPÉ / ASSINATURA DO SISTEMA
