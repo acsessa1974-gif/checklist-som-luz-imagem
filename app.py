@@ -217,6 +217,7 @@ def carregar_estoque():
             pass
 
     dados_iniciais = [
+        # Áudio — Caixas e Alto-Falantes
         ("001", "CAIXA SUBGRAVE DUPLA LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
         ("002", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
         ("003", "CAIXA SUBGRAVE SB800", 6, "Áudio"),
@@ -246,6 +247,8 @@ def carregar_estoque():
         ("027", "CAIXA ALTA YAMAHA DXR10", 2, "Áudio"),
         ("028", "CAIXA SUBGRAVE YAMAHA DXS12 MKII", 2, "Áudio"),
         ("029", "CAIXA ATTACK VRM1230A", 3, "Áudio"),
+
+        # Microfones e Kits de Bateria (Com Fios)
         ("030", "MICROFONE SHURE BETA 91A", 1, "Áudio"),
         ("031", "MICROFONE E604 SENNHEISER", 8, "Áudio"),
         ("032", "MICROFONE AKG D112", 1, "Áudio"),
@@ -259,6 +262,8 @@ def carregar_estoque():
         ("040", "MICROFONE SAMSON C02", 4, "Áudio"),
         ("041", "MICROFONE SAMSON C02H", 2, "Áudio"),
         ("042", "KIT DE MICROFONE DE BATERIA JTS", 1, "Áudio"),
+
+        # Sistemas Sem Fio (In-Ear e Microfones)
         ("043", "TRANSMISSOR SHURE PSM900 P9T", 1, "Áudio"),
         ("044", "BODYPACK SHURE PSM900 P9R L6 (656/692 MHZ)", 1, "Áudio"),
         ("045", "SISTEMA IN-EAR SENNHEISER EW300 G3 (516/558 MHZ)", 2, "Áudio"),
@@ -288,6 +293,8 @@ def carregar_estoque():
         ("069", "MICROFONE SEM FIO BASTÃO SHURE UR4", 8, "Áudio"),
         ("070", "TRANSMISSOR SHURE UR1M", 20, "Áudio"),
         ("071", "ANTENA RELACART", 6, "Áudio"),
+
+        # Distribuição de Fones e Multicabos (Snakes)
         ("072", "AMPLIFICADOR DE FONES POWERPLAY ASA", 1, "Áudio"),
         ("073", "AMPLIFICADOR DE FONES POWERPLAY EAM", 1, "Áudio"),
         ("074", "BODYPACK EAM", 8, "Áudio"),
@@ -300,6 +307,8 @@ def carregar_estoque():
         ("081", "MEDUSA DE BATERIA DE 12 VIAS", 2, "Áudio"),
         ("082", "MEDUSA SPLITADA DE 32 VIAS GRANDE", 1, "Áudio"),
         ("083", "MEDUSA DE 36 VIAS (RUIM)", 1, "Áudio"),
+
+        # Backline (Baterias, Cabeçotes e Caixas de Instrumentos)
         ("084", "BATERIA ACÚSTICA GRETSCH BLACK HAWK", 1, "Backline"),
         ("085", "BATERIA ACÚSTICA PEARL EXPORT", 1, "Backline"),
         ("086", "BATERIA ACÚSTICA PEARL VISION", 1, "Backline"),
@@ -312,6 +321,8 @@ def carregar_estoque():
         ("093", "CAIXA DE BAIXO WARWICK 1X15", 1, "Backline"),
         ("094", "AMPLIFICADOR DE GUITARRA FENDER FRONTMAN 212R", 1, "Backline"),
         ("095", "AMPLIFICADOR DE GUITARRA METEORO", 1, "Backline"),
+
+        # Mesas de Som (Consoles)
         ("096", "MESA DE SOM YAMAHA 01V", 3, "Áudio"),
         ("097", "MESA DE SOM YAMAHA LS9-32", 2, "Áudio"),
         ("098", "MESA DE SOM MIDAS M32", 1, "Áudio"),
@@ -324,6 +335,8 @@ def carregar_estoque():
         ("105", "MESA DE SOM SOUNDCRAFT SIGNATURE 12", 1, "Áudio"),
         ("106", "MESA DE SOM YAMAHA MG12XU", 1, "Áudio"),
         ("107", "MESA DE SOM SOUNDVOICE AUREA MD-12", 1, "Áudio"),
+
+        # Iluminação
         ("108", "MESA DMX MINI AVOLITES 1024", 2, "Luz"),
         ("109", "MESA DE LUZ AVOLITES", 2, "Luz"),
         ("110", "MESA DE LUZ GRAND MA", 1, "Luz"),
@@ -362,71 +375,96 @@ def carregar_estoque():
         ("143", "GARRA DE MOVING", 65, "Luz"),
         ("144", "MULTIVIAS DE XLR", 1, "Luz"),
         ("145", "MÁQUINA DE BOLHAS", 2, "Luz"),
-        ("146", "PEDESTAL", 41, "Acessórios"),
-        ("147", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
-        ("148", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
-        ("149", "RÉGUA DE ENERGIA POWERCON / POWERCON", 4, "Acessórios"),
-        ("150", "PROCESSADOR BEHRINGER", 1, "Áudio"),
-        ("151", "PROCESSADOR DBX", 3, "Áudio"),
-        ("152", "AMPLIFICADOR CROWN XTI 1000", 1, "Áudio"),
-        ("153", "AMPLIFICADOR CROWN XTI 4000", 2, "Áudio"),
-        ("154", "AMPLIFICADOR CROWN XTI 6000", 1, "Áudio"),
-        ("155", "HOT SOUND HS PRO 5", 1, "Áudio"),
-        ("156", "HOT SOUND DIGILITE 6.4", 1, "Áudio"),
-        ("157", "HOT SOUND DIGILITE 8.0", 1, "Áudio"),
-        ("158", "YAMAHA P3200", 1, "Áudio"),
-        ("159", "AMPLIFICADOR CROWN / CARVER (RUIM)", 3, "Áudio"),
-        ("160", "STUDIO R Z2400", 1, "Áudio"),
-        ("161", "STUDIO R XD", 1, "Áudio"),
-        ("162", "STUDIO R X5", 1, "Áudio"),
-        ("163", "STUDIO R X12", 1, "Áudio"),
-        ("164", "APD 4004 THUNDELIGHT", 2, "Áudio"),
-        ("165", "POWERTEC LS", 4, "Áudio"),
-        ("166", "RACK DE AC AZUL (RUIM)", 1, "Acessórios"),
-        ("167", "RACK DE AC NOVO", 1, "Acessórios"),
-        ("168", "CENTRAL DE ENERGIA", 4, "Acessórios"),
-        ("169", "ISOLADOR DE ÁUDIO GX200", 2, "Áudio"),
-        ("170", "DIRECT BOX WHIRLWIND IMP2", 5, "Áudio"),
-        ("171", "DIRECT BOX WALDMAN PASSIVA DI-1PS", 5, "Áudio"),
-        ("172", "DIRECT BOX WIRECONEX WDI600", 4, "Áudio"),
-        ("173", "DIRECT BOX WIRECONEX WDI500", 20, "Áudio"),
-        ("174", "DIRECT BOX WALDMAN ATIVA DI-1A", 7, "Áudio"),
-        ("175", "DIRECT BOX SAMSON ATIVA S. DIRECT", 3, "Áudio"),
-        ("176", "DIRECT BOX SAMSON ATIVA S. DIRECT PLUS", 1, "Áudio"),
-        ("177", "MOUSE PAD", 1, "Informática"),
-        ("178", "CPU WYSE DELL", 1, "Informática"),
-        ("179", "MONITOR DELL P2418HT", 1, "Informática"),
-        ("180", "FONTE DE MONITOR HA65NS5-00", 1, "Informática"),
-        ("181", "CABO RJ45", 1, "Informática"),
-        ("182", "CABO DISPLAYPORT", 1, "Informática"),
-        ("183", "CABO USB-SS DELL", 1, "Informática"),
-        ("184", "CABO DE FORÇA PARA FONTE", 1, "Informática"),
-        ("185", "JUMPER SPEAKON (4 VIAS - ALTAS)", 18, "Áudio"),
-        ("186", "JUMPER SPEAKON (2 VIAS - SUB)", 6, "Áudio"),
-        ("187", "CABO SPEAKON (4 VIAS - ALTAS)", 8, "Áudio"),
-        ("188", "CABO SPEAKON (2 VIAS - SUB)", 8, "Áudio"),
-        ("189", "CABO POWERCON / POWERCON", 20, "Acessórios"),
-        ("190", "CABO XLR DE 30 METROS", 8, "Áudio"),
-        ("191", "CABO XLR DE 10 METROS", 60, "Áudio"),
-        ("192", "CABO XLR DE 5 METROS", 90, "Áudio"),
-        ("193", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
-        ("194", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
-        ("195", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
-        ("196", "CABO XLR DA BARRA GARDEN - SINGELOS", 4, "Luz"),
-        ("197", "CABO XLR DE SINAL", 200, "Luz"),
-        ("198", "CABO PP", 200, "Acessórios"),
-        ("199", "CABO PARALELO Y", 14, "Acessórios"),
-        ("200", "CENTOPÉIA GRANDE DE 2,5 MM", 11, "Acessórios"),
-        ("201", "CENTOPÉIA DE 1,5 MM TAMANHOS VARIADOS", 10, "Acessórios"),
-        ("202", "CANHÃO SKY WALKER COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("203", "STROBO LED RGBW FITA COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("204", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE COM DEFEITO", 1, "Equipamentos com Defeito"),
-        ("205", "MÁQUINA DE FUMAÇA HAZE COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("206", "MOVING BEAM 230 BORDA DE LED COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("207", "MOVING BEAM 9R COM DEFEITO", 3, "Equipamentos com Defeito"),
-        ("208", "MOVING BEAM 7R COM DEFEITO", 8, "Equipamentos com Defeito"),
-        ("209", "LASER COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("210", "STROBO ANTIGO COM DEFEITO", 2, "Equipamentos com Defeito")
+
+        # Estruturas (Nova Seção)
+        ("146", "BOX TRUSS 3.0M", 10, "Estruturas"),
+        ("147", "BOX TRUSS 2.0M", 16, "Estruturas"),
+        ("148", "BOX TRUSS 1.0M", 9, "Estruturas"),
+        ("149", "BOX TRUSS 0.50M", 6, "Estruturas"),
+        ("150", "CUBO", 15, "Estruturas"),
+        ("151", "FACEADA", 6, "Estruturas"),
+        ("152", "MEIA LUA", 4, "Estruturas"),
+        ("153", "BASE", 12, "Estruturas"),
+        ("154", "BASE ALTA", 2, "Estruturas"),
+        ("155", "SLEEVE", 4, "Estruturas"),
+        ("156", "PAU DE CARGA", 4, "Estruturas"),
+        ("157", "CUMIERA", 6, "Estruturas"),
+        ("158", "PARAFUSOS NOVOS", 150, "Estruturas"),
+        ("159", "PARAFUSO DIVERSOS", 40, "Estruturas"),
+        ("160", "PARAFUSO SEM PORCA", 30, "Estruturas"),
+        ("161", "GREPO", 8, "Estruturas"),
+        ("162", "PRATICÁVEL 2.0M X 1.00M", 49, "Estruturas"),
+        ("163", "PRATICÁVEL 0.50M X 1.0M", 2, "Estruturas"),
+        ("164", "PRATICÁVEL 1.0M X 1.0M", 2, "Estruturas"),
+
+        # Cabos, Energia, Informática e Acessórios
+        ("165", "PEDESTAL", 41, "Acessórios"),
+        ("166", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
+        ("167", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
+        ("168", "RÉGUA DE ENERGIA POWERCON / POWERCON", 4, "Acessórios"),
+        ("169", "PROCESSADOR BEHRINGER", 1, "Áudio"),
+        ("170", "PROCESSADOR DBX", 3, "Áudio"),
+        ("171", "AMPLIFICADOR CROWN XTI 1000", 1, "Áudio"),
+        ("172", "AMPLIFICADOR CROWN XTI 4000", 2, "Áudio"),
+        ("173", "AMPLIFICADOR CROWN XTI 6000", 1, "Áudio"),
+        ("174", "HOT SOUND HS PRO 5", 1, "Áudio"),
+        ("175", "HOT SOUND DIGILITE 6.4", 1, "Áudio"),
+        ("176", "HOT SOUND DIGILITE 8.0", 1, "Áudio"),
+        ("177", "YAMAHA P3200", 1, "Áudio"),
+        ("178", "AMPLIFICADOR CROWN / CARVER (RUIM)", 3, "Áudio"),
+        ("179", "STUDIO R Z2400", 1, "Áudio"),
+        ("180", "STUDIO R XD", 1, "Áudio"),
+        ("181", "STUDIO R X5", 1, "Áudio"),
+        ("182", "STUDIO R X12", 1, "Áudio"),
+        ("183", "APD 4004 THUNDELIGHT", 2, "Áudio"),
+        ("184", "POWERTEC LS", 4, "Áudio"),
+        ("185", "RACK DE AC AZUL (RUIM)", 1, "Acessórios"),
+        ("186", "RACK DE AC NOVO", 1, "Acessórios"),
+        ("187", "CENTRAL DE ENERGIA", 4, "Acessórios"),
+        ("188", "ISOLADOR DE ÁUDIO GX200", 2, "Áudio"),
+        ("189", "DIRECT BOX WHIRLWIND IMP2", 5, "Áudio"),
+        ("190", "DIRECT BOX WALDMAN PASSIVA DI-1PS", 5, "Áudio"),
+        ("191", "DIRECT BOX WIRECONEX WDI600", 4, "Áudio"),
+        ("192", "DIRECT BOX WIRECONEX WDI500", 20, "Áudio"),
+        ("193", "DIRECT BOX WALDMAN ATIVA DI-1A", 7, "Áudio"),
+        ("194", "DIRECT BOX SAMSON ATIVA S. DIRECT", 3, "Áudio"),
+        ("195", "DIRECT BOX SAMSON ATIVA S. DIRECT PLUS", 1, "Áudio"),
+        ("196", "MOUSE PAD", 1, "Informática"),
+        ("197", "CPU WYSE DELL", 1, "Informática"),
+        ("198", "MONITOR DELL P2418HT", 1, "Informática"),
+        ("199", "FONTE DE MONITOR HA65NS5-00", 1, "Informática"),
+        ("200", "CABO RJ45", 1, "Informática"),
+        ("201", "CABO DISPLAYPORT", 1, "Informática"),
+        ("202", "CABO USB-SS DELL", 1, "Informática"),
+        ("203", "CABO DE FORÇA PARA FONTE", 1, "Informática"),
+        ("204", "JUMPER SPEAKON (4 VIAS - ALTAS)", 18, "Áudio"),
+        ("205", "JUMPER SPEAKON (2 VIAS - SUB)", 6, "Áudio"),
+        ("206", "CABO SPEAKON (4 VIAS - ALTAS)", 8, "Áudio"),
+        ("207", "CABO SPEAKON (2 VIAS - SUB)", 8, "Áudio"),
+        ("208", "CABO POWERCON / POWERCON", 20, "Acessórios"),
+        ("209", "CABO XLR DE 30 METROS", 8, "Áudio"),
+        ("210", "CABO XLR DE 10 METROS", 60, "Áudio"),
+        ("211", "CABO XLR DE 5 METROS", 90, "Áudio"),
+        ("212", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
+        ("213", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
+        ("214", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
+        ("215", "CABO XLR DA BARRA GARDEN - SINGELOS", 4, "Luz"),
+        ("216", "CABO XLR DE SINAL", 200, "Luz"),
+        ("217", "CABO PP", 200, "Acessórios"),
+        ("218", "CABO PARALELO Y", 14, "Acessórios"),
+        ("219", "CENTOPÉIA GRANDE DE 2,5 MM", 11, "Acessórios"),
+        ("220", "CENTOPÉIA DE 1,5 MM TAMANHOS VARIADOS", 10, "Acessórios"),
+
+        # Equipamentos com Defeito
+        ("221", "CANHÃO SKY WALKER COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("222", "STROBO LED RGBW FITA COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("223", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE COM DEFEITO", 1, "Equipamentos com Defeito"),
+        ("224", "MÁQUINA DE FUMAÇA HAZE COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("225", "MOVING BEAM 230 BORDA DE LED COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("226", "MOVING BEAM 9R COM DEFEITO", 3, "Equipamentos com Defeito"),
+        ("227", "MOVING BEAM 7R COM DEFEITO", 8, "Equipamentos com Defeito"),
+        ("228", "LASER COM DEFEITO", 2, "Equipamentos com Defeito"),
+        ("229", "STROBO ANTIGO COM DEFEITO", 2, "Equipamentos com Defeito")
     ]
 
     lista_estoque = [{
@@ -861,7 +899,7 @@ if menu == "VISÃO GERAL DO ACERVO":
     with c1:
         busca = st.text_input("Pesquisar equipamento por descrição ou código:", placeholder="Digite o modelo, marca ou código...")
     with c2:
-        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
+        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
     with c3:
         f_disp = st.selectbox("Status de Alocação:", ["Todos os Itens", "Somente Alocados em Eventos", "Somente Disponíveis na Base"])
 
@@ -992,7 +1030,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
             placeholder="Digite qualquer parte do nome ou código (ex: SM58, Line Array, XLR, Moving)..."
         )
     with col_cat_s:
-        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
+        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
 
     df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy()
     
@@ -1258,7 +1296,7 @@ elif menu == "CADASTRO DE MATERIAIS":
             st.text_input("Código Patrimonial Gerado Automaticamente:", value=proximo_codigo, disabled=True)
             n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:")
         with c2:
-            n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Backline", "Luz", "Informática", "Acessórios", "Equipamentos com Defeito"])
+            n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
             n_qtd = st.number_input("Quantidade Total Incorporada:", min_value=1, value=1, step=1)
         
         if st.form_submit_button("REGISTRAR EQUIPAMENTO NO ACERVO"):
