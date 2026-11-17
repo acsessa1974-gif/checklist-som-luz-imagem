@@ -122,7 +122,8 @@ st.markdown("""
         .stRadio,
         .stSelectbox,
         .stTextInput,
-        [data-testid="stExpander"] {
+        [data-testid="stExpander"],
+        [data-testid="stTabs"] {
             display: none !important;
         }
         body, .main, .block-container {
@@ -217,7 +218,7 @@ def carregar_estoque():
             pass
 
     dados_iniciais = [
-        # Áudio — Caixas e Alto-Falantes
+        # Áudio
         ("001", "CAIXA SUBGRAVE DUPLA LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
         ("002", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
         ("003", "CAIXA SUBGRAVE SB800", 6, "Áudio"),
@@ -247,8 +248,6 @@ def carregar_estoque():
         ("027", "CAIXA ALTA YAMAHA DXR10", 2, "Áudio"),
         ("028", "CAIXA SUBGRAVE YAMAHA DXS12 MKII", 2, "Áudio"),
         ("029", "CAIXA ATTACK VRM1230A", 3, "Áudio"),
-
-        # Microfones e Kits de Bateria (Com Fios)
         ("030", "MICROFONE SHURE BETA 91A", 1, "Áudio"),
         ("031", "MICROFONE E604 SENNHEISER", 8, "Áudio"),
         ("032", "MICROFONE AKG D112", 1, "Áudio"),
@@ -262,8 +261,6 @@ def carregar_estoque():
         ("040", "MICROFONE SAMSON C02", 4, "Áudio"),
         ("041", "MICROFONE SAMSON C02H", 2, "Áudio"),
         ("042", "KIT DE MICROFONE DE BATERIA JTS", 1, "Áudio"),
-
-        # Sistemas Sem Fio (In-Ear e Microfones)
         ("043", "TRANSMISSOR SHURE PSM900 P9T", 1, "Áudio"),
         ("044", "BODYPACK SHURE PSM900 P9R L6 (656/692 MHZ)", 1, "Áudio"),
         ("045", "SISTEMA IN-EAR SENNHEISER EW300 G3 (516/558 MHZ)", 2, "Áudio"),
@@ -293,8 +290,6 @@ def carregar_estoque():
         ("069", "MICROFONE SEM FIO BASTÃO SHURE UR4", 8, "Áudio"),
         ("070", "TRANSMISSOR SHURE UR1M", 20, "Áudio"),
         ("071", "ANTENA RELACART", 6, "Áudio"),
-
-        # Distribuição de Fones e Multicabos (Snakes)
         ("072", "AMPLIFICADOR DE FONES POWERPLAY ASA", 1, "Áudio"),
         ("073", "AMPLIFICADOR DE FONES POWERPLAY EAM", 1, "Áudio"),
         ("074", "BODYPACK EAM", 8, "Áudio"),
@@ -308,7 +303,7 @@ def carregar_estoque():
         ("082", "MEDUSA SPLITADA DE 32 VIAS GRANDE", 1, "Áudio"),
         ("083", "MEDUSA DE 36 VIAS (RUIM)", 1, "Áudio"),
 
-        # Backline (Baterias, Cabeçotes e Caixas de Instrumentos)
+        # Backline
         ("084", "BATERIA ACÚSTICA GRETSCH BLACK HAWK", 1, "Backline"),
         ("085", "BATERIA ACÚSTICA PEARL EXPORT", 1, "Backline"),
         ("086", "BATERIA ACÚSTICA PEARL VISION", 1, "Backline"),
@@ -321,8 +316,6 @@ def carregar_estoque():
         ("093", "CAIXA DE BAIXO WARWICK 1X15", 1, "Backline"),
         ("094", "AMPLIFICADOR DE GUITARRA FENDER FRONTMAN 212R", 1, "Backline"),
         ("095", "AMPLIFICADOR DE GUITARRA METEORO", 1, "Backline"),
-
-        # Mesas de Som (Consoles)
         ("096", "MESA DE SOM YAMAHA 01V", 3, "Áudio"),
         ("097", "MESA DE SOM YAMAHA LS9-32", 2, "Áudio"),
         ("098", "MESA DE SOM MIDAS M32", 1, "Áudio"),
@@ -376,7 +369,7 @@ def carregar_estoque():
         ("144", "MULTIVIAS DE XLR", 1, "Luz"),
         ("145", "MÁQUINA DE BOLHAS", 2, "Luz"),
 
-        # Estruturas (Nova Seção)
+        # Estruturas
         ("146", "BOX TRUSS 3.0M", 10, "Estruturas"),
         ("147", "BOX TRUSS 2.0M", 16, "Estruturas"),
         ("148", "BOX TRUSS 1.0M", 9, "Estruturas"),
@@ -397,7 +390,7 @@ def carregar_estoque():
         ("163", "PRATICÁVEL 0.50M X 1.0M", 2, "Estruturas"),
         ("164", "PRATICÁVEL 1.0M X 1.0M", 2, "Estruturas"),
 
-        # Cabos, Energia, Informática e Acessórios
+        # Cabos e Acessórios
         ("165", "PEDESTAL", 41, "Acessórios"),
         ("166", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
         ("167", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
@@ -657,6 +650,50 @@ def gerar_pdf_checklist(ev):
         ('TOPPADDING', (0,0), (-1,-1), 15),
     ]))
     elementos.append(t_ass)
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def gerar_pdf_visita(dados):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elementos = []
+    styles = getSampleStyleSheet()
+
+    estilo_titulo = ParagraphStyle('Titulo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=14, leading=18, textColor=colors.HexColor('#0f172a'), alignment=1)
+    estilo_top = ParagraphStyle('Top', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.white)
+    estilo_label = ParagraphStyle('Label', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor('#1e293b'))
+    estilo_valor = ParagraphStyle('Valor', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.black)
+
+    texto_empresa = Paragraph("<b>A.C.S. PRODUÇÕES & DIVULGAÇÕES LTDA</b><br/>RELATÓRIO DE VISITA TÉCNICA DE LOCAÇÃO", estilo_top)
+    
+    t_cab = Table([["", texto_empresa]], colWidths=[20, 500])
+    t_cab.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#0f172a')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 10),
+        ('LINEBELOW', (0,0), (-1,-1), 3, colors.HexColor('#0d9488')),
+    ]))
+    elementos.append(t_cab)
+    elementos.append(Spacer(1, 20))
+    elementos.append(Paragraph("<b>GABARITO OFICIAL DE VISITA TÉCNICA</b>", estilo_titulo))
+    elementos.append(Spacer(1, 15))
+
+    dados_tabela = []
+    for chave, valor in dados.items():
+        if chave == "Data Registro": continue
+        val_formatado = str(valor) if pd.notna(valor) and valor != "" else "N/A"
+        dados_tabela.append([Paragraph(f"<b>{chave.upper()}:</b>", estilo_label), Paragraph(val_formatado, estilo_valor)])
+
+    t_dados = Table(dados_tabela, colWidths=[180, 350])
+    t_dados.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#f8fafc')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('PADDING', (0,0), (-1,-1), 8),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+    ]))
+    elementos.append(t_dados)
 
     doc.build(elementos)
     buffer.seek(0)
@@ -1388,71 +1425,116 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
         st.info("Não constam registros históricos de movimentação até o momento.")
 
 # =====================================================================
-# MÓDULO 7: VISITA TÉCNICA (QUESTIONÁRIO / GABARITO)
+# MÓDULO 7: VISITA TÉCNICA (STREAMLIT COM ABAS E PROTEÇÕES)
 # =====================================================================
 elif menu == "VISITA TÉCNICA":
-    st.markdown('<div class="section-header">Gabarito de Visita Técnica e Levantamento de Locação</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Gabarito e Histórico de Visitas Técnicas</div>', unsafe_allow_html=True)
     
-    with st.form("form_visita_tecnica"):
-        col_vt1, col_vt2 = st.columns(2)
-        with col_vt1:
-            vt_resp = st.text_input("Responsável pela Visita Técnica:")
-            vt_local = st.text_input("Local do Evento:")
-            vt_dia_horario = st.text_input("Dia do Evento, Horário e Passagem:", placeholder="Ex: Sábado, 20h, Soundcheck às 17h")
-            vt_eletrica = st.text_input("Elétrica, Responsável e Distância:", placeholder="Ex: Trifásico, Seu João, próximo ao palco")
-            vt_pre_montagem = st.text_input("Pré Montagem:", placeholder="Detalhes sobre a pré-montagem")
-            vt_pe_direito = st.text_input("Pé Direito:", placeholder="Ex: 6 metros")
-            vt_painel_led = st.text_input("Painel de LED:", placeholder="Especificações ou dimensões")
-            vt_iluminacao = st.text_input("Iluminação:", placeholder="Pontos de luz, varas, etc.")
-        with col_vt2:
-            vt_sonorizacao = st.text_input("Sonorização:", placeholder="Acústica, pontos de PA, etc.")
-            vt_riders = st.text_input("Riders e Contatos:", placeholder="Nome e telefone dos técnicos contratantes")
-            vt_palco = st.text_input("Palco (Tamanho, Altura e Cor):", placeholder="Ex: 10x8m, altura 1.2m, preto")
-            vt_doca = st.text_input("Doca (Se entra o caminhão):", placeholder="Sim / Não / Detalhes de acesso")
-            vt_dificuldades = st.text_input("Escada, Corredor ou Outras Dificuldades:", placeholder="Ex: 2 lances de escada estreita")
-            vt_quadro_energia = st.text_input("Distância do Quadro de Energia ou Gerador:", placeholder="Ex: 35 metros")
-            vt_obs = st.text_area("Observações Gerais:")
+    aba_form, aba_hist = st.tabs(["📝 Novo Registro de Visita", "📋 Histórico e Emissão de PDFs"])
+    
+    # -----------------------------------------------------------------
+    # ABA 1: FORMULÁRIO (Com Verificação de Duplicidade)
+    # -----------------------------------------------------------------
+    with aba_form:
+        with st.form("form_visita_tecnica"):
+            col_vt1, col_vt2 = st.columns(2)
+            with col_vt1:
+                vt_resp = st.text_input("Responsável pela Visita Técnica:")
+                vt_local = st.text_input("Local do Evento:")
+                vt_dia_horario = st.text_input("Dia do Evento, Horário e Passagem:", placeholder="Ex: Sábado, 20h, Soundcheck às 17h")
+                vt_eletrica = st.text_input("Elétrica, Responsável e Distância:", placeholder="Ex: Trifásico, Seu João, próximo ao palco")
+                vt_pre_montagem = st.text_input("Pré Montagem:", placeholder="Detalhes sobre a pré-montagem")
+                vt_pe_direito = st.text_input("Pé Direito:", placeholder="Ex: 6 metros")
+                vt_painel_led = st.text_input("Painel de LED:", placeholder="Especificações ou dimensões")
+                vt_iluminacao = st.text_input("Iluminação:", placeholder="Pontos de luz, varas, etc.")
+            with col_vt2:
+                vt_sonorizacao = st.text_input("Sonorização:", placeholder="Acústica, pontos de PA, etc.")
+                vt_riders = st.text_input("Riders e Contatos:", placeholder="Nome e telefone dos técnicos contratantes")
+                vt_palco = st.text_input("Palco (Tamanho, Altura e Cor):", placeholder="Ex: 10x8m, altura 1.2m, preto")
+                vt_doca = st.text_input("Doca (Se entra o caminhão):", placeholder="Sim / Não / Detalhes de acesso")
+                vt_dificuldades = st.text_input("Escada, Corredor ou Outras Dificuldades:", placeholder="Ex: 2 lances de escada estreita")
+                vt_quadro_energia = st.text_input("Distância do Quadro de Energia ou Gerador:", placeholder="Ex: 35 metros")
+                vt_obs = st.text_area("Observações Gerais:")
 
-        if st.form_submit_button("REGISTRAR E SALVAR VISITA TÉCNICA"):
-            if not vt_local or not vt_resp:
-                st.error("Preencha pelo menos os campos de Local e Responsável pela Visita.")
-            else:
-                nova_visita = {
-                    "Data Registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "Responsável": vt_resp.upper(),
-                    "Local": vt_local.upper(),
-                    "Horário/Passagem": vt_dia_horario,
-                    "Elétrica": vt_eletrica,
-                    "Pré Montagem": vt_pre_montagem,
-                    "Pé Direito": vt_pe_direito,
-                    "Painel LED": vt_painel_led,
-                    "Iluminação": vt_iluminacao,
-                    "Sonorização": vt_sonorizacao,
-                    "Riders/Contatos": vt_riders,
-                    "Palco": vt_palco,
-                    "Doca/Caminhão": vt_doca,
-                    "Dificuldades": vt_dificuldades,
-                    "Distância Energia": vt_quadro_energia,
-                    "Observações": vt_obs
-                }
-                visitas_tecnicas.append(nova_visita)
-                salvar_visitas(visitas_tecnicas)
-                st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso!")
-                st.rerun()
+            if st.form_submit_button("REGISTRAR E SALVAR VISITA TÉCNICA", type="primary", use_container_width=True):
+                if not vt_local or not vt_resp:
+                    st.error("Preencha pelo menos os campos de Local e Responsável pela Visita.")
+                else:
+                    # Verifica Duplicidade
+                    duplicado = False
+                    for v in visitas_tecnicas:
+                        if (v.get("Local", "").strip().upper() == vt_local.strip().upper() and 
+                            v.get("Horário/Passagem", "").strip().upper() == vt_dia_horario.strip().upper()):
+                            duplicado = True
+                            break
+                    
+                    if duplicado:
+                        st.warning(f"⚠️ Já existe uma visita técnica registada para o local '{vt_local.upper()}' com este mesmo horário. Ação cancelada para evitar duplicidade.")
+                    else:
+                        nova_visita = {
+                            "Data Registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "Responsável": vt_resp.upper(),
+                            "Local": vt_local.upper(),
+                            "Horário/Passagem": vt_dia_horario,
+                            "Elétrica": vt_eletrica,
+                            "Pré Montagem": vt_pre_montagem,
+                            "Pé Direito": vt_pe_direito,
+                            "Painel LED": vt_painel_led,
+                            "Iluminação": vt_iluminacao,
+                            "Sonorização": vt_sonorizacao,
+                            "Riders/Contatos": vt_riders,
+                            "Palco": vt_palco,
+                            "Doca/Caminhão": vt_doca,
+                            "Dificuldades": vt_dificuldades,
+                            "Distância Energia": vt_quadro_energia,
+                            "Observações": vt_obs
+                        }
+                        visitas_tecnicas.append(nova_visita)
+                        salvar_visitas(visitas_tecnicas)
+                        st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso!")
+                        st.rerun()
 
-    if visitas_tecnicas:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Histórico de Visitas Técnicas Registadas</div>', unsafe_allow_html=True)
-        df_v = pd.DataFrame(visitas_tecnicas)
-        st.dataframe(df_v, hide_index=True, use_container_width=True)
-
-        with open(ARQUIVO_VISITAS, "rb") as f:
-            st.download_button(
-                "EXPORTAR VISITAS TÉCNICAS EM EXCEL (.XLSX)",
-                f,
-                file_name=f"visitas_tecnicas_acs_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                use_container_width=True
-            )
+    # -----------------------------------------------------------------
+    # ABA 2: HISTÓRICO, PDF E EXCLUSÃO
+    # -----------------------------------------------------------------
+    with aba_hist:
+        if not visitas_tecnicas:
+            st.info("Nenhuma visita técnica registada até o momento.")
+        else:
+            df_v = pd.DataFrame(visitas_tecnicas)
+            st.dataframe(df_v, hide_index=True, use_container_width=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### ⚙️ Gestão de Visitas Técnicas Registadas")
+            opcoes_vt = [f"{v['Local']} - Data Registro: {v['Data Registro']} (Resp: {v['Responsável']})" for v in visitas_tecnicas]
+            idx_vt = st.selectbox("Selecione a Visita Técnica:", range(len(opcoes_vt)), format_func=lambda x: opcoes_vt[x])
+            vt_selecionada = visitas_tecnicas[idx_vt]
+            
+            col_act1, col_act2 = st.columns(2)
+            with col_act1:
+                pdf_vt_bytes = gerar_pdf_visita(vt_selecionada)
+                nome_arq_vt_pdf = f"Visita_{vt_selecionada['Local'].replace(' ', '_')}_{datetime.now().strftime('%H%M%S')}.pdf"
+                st.download_button(
+                    label="📄 GERAR PDF DESTA VISITA (P/ IMPRESSÃO)",
+                    data=pdf_vt_bytes,
+                    file_name=nome_arq_vt_pdf,
+                    mime="application/pdf",
+                    type="primary",
+                    use_container_width=True
+                )
+            
+            with col_act2:
+                with st.expander("🗑️ APAGAR ESTA VISITA (Requer Senha)"):
+                    st.warning("Ao apagar, este registro sumirá permanentemente.")
+                    senha_del_vt = st.text_input("Senha Administrativa:", type="password", key="pwd_del_vt")
+                    if st.button("CONFIRMAR EXCLUSÃO DA VISITA"):
+                        if senha_del_vt == SENHA_EXCLUSAO:
+                            visitas_tecnicas.pop(idx_vt)
+                            salvar_visitas(visitas_tecnicas)
+                            st.success("Visita técnica apagada com sucesso.")
+                            st.rerun()
+                        else:
+                            st.error("Senha administrativa incorreta.")
 
 # =====================================================================
 # RODAPÉ / ASSINATURA DO SISTEMA
