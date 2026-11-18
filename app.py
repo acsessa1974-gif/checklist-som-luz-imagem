@@ -26,7 +26,7 @@ st.set_page_config(
 # CONFIGURAÇÃO DE SENHAS E CATEGORIAS DO SISTEMA
 # =====================================================================
 SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
-SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios e itens
+SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para editar/apagar relatórios e itens
 
 CATEGORIAS_OFICIAIS = [
     "Áudio",
@@ -43,7 +43,7 @@ CATEGORIAS_OFICIAIS = [
 # CORRETOR ORTOGRÁFICO PORTUGUÊS DO BRASIL (PT-BR)
 # =====================================================================
 def ativar_corretor_navegador_ptbr():
-    """Força o corretor ortográfico nativo do navegador/telemóvel para Português do Brasil (pt-BR)."""
+    """Força o corretor ortográfico nativo do navegador/celular para Português do Brasil (pt-BR)."""
     components.html(
         """
         <script>
@@ -713,7 +713,6 @@ ativar_corretor_navegador_ptbr()
 # =====================================================================
 df_estoque = carregar_estoque()
 
-# Se houver buracos nos códigos (ex: 235 itens mas último código 237), sincroniza automaticamente
 if not df_estoque.empty:
     codigos_esperados = [str(i + 1).zfill(3) for i in range(len(df_estoque))]
     nomes_corrigidos = [corrigir_ortografia_ptbr(str(n), maiusculo=True) for n in df_estoque["Equipamento"]]
@@ -801,10 +800,11 @@ with k4:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================================================================
-# MÓDULO 1: VISÃO GERAL DO ACERVO
+# MÓDULO 1: VISÃO GERAL DO ACERVO (COM LÁPIS ✏️ EDITAR EM CADA ITEM)
 # =====================================================================
 if menu == "VISÃO GERAL DO ACERVO":
     st.markdown('<div class="section-header">Posição Consolidada do Acervo Técnico</div>', unsafe_allow_html=True)
+    st.caption("💡 Dica: Marque o ícone de lápis **✏️** ao lado de qualquer item (ou dê duplo clique no nome, setor ou quantidade na tabela) para editá-lo mediante senha.")
     
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
@@ -828,47 +828,92 @@ if menu == "VISÃO GERAL DO ACERVO":
         elif f_disp == "Somente Disponíveis na Base":
             df_view = df_view[df_view["Disponível"] > 0]
 
-    st.dataframe(
-        df_view,
+    df_view_editor = df_view.reset_index(drop=True).copy()
+    df_view_editor.insert(0, "Editar", False)
+
+    df_editado_acervo = st.data_editor(
+        df_view_editor,
+        key="tabela_acervo_lapis",
         hide_index=True,
         use_container_width=True,
+        disabled=["Código", "Disponível", "Em Uso"],
         column_config={
+            "Editar": st.column_config.CheckboxColumn("✏️ EDITAR", help="Marque para editar este item com senha", default=False, width="small"),
             "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
-            "Categoria": st.column_config.TextColumn("SETOR", width="small"),
-            "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
-            "Estoque Total": st.column_config.NumberColumn("ACERVO TOTAL", width="small"),
+            "Categoria": st.column_config.SelectboxColumn("SETOR", options=CATEGORIAS_OFICIAIS, required=True, width="small"),
+            "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", required=True, width="large"),
+            "Estoque Total": st.column_config.NumberColumn("ACERVO TOTAL", min_value=0, step=1, required=True, width="small"),
             "Disponível": st.column_config.NumberColumn("DISPONÍVEL", width="small"),
             "Em Uso": st.column_config.NumberColumn("ALOCADO", width="small")
         }
     )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("✏️ EDITAR EQUIPAMENTO / ALTERAR SETOR OU QUANTIDADE"):
-        opcoes_edicao = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()] if not df_estoque.empty else []
-        item_para_editar = st.selectbox("Selecione o equipamento que deseja editar:", options=opcoes_edicao, key="sel_edit_item")
-        if item_para_editar:
-            cod_ed = item_para_editar.split("|")[0].replace("Cód:", "").strip().zfill(3)
-            linha_ed = df_estoque[df_estoque["Código"] == cod_ed].iloc[0]
-            col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
-            with col_ed1:
-                novo_nome_ed = st.text_input("Especificação do Equipamento:", value=linha_ed["Equipamento"], key="txt_edit_nome")
-            with col_ed2:
-                idx_cat = CATEGORIAS_OFICIAIS.index(linha_ed["Categoria"]) if linha_ed["Categoria"] in CATEGORIAS_OFICIAIS else 0
-                nova_cat_ed = st.selectbox("Departamento / Setor:", CATEGORIAS_OFICIAIS, index=idx_cat, key="sel_edit_cat")
-            with col_ed3:
-                nova_qtd_ed = st.number_input("Acervo Total:", min_value=int(linha_ed["Em Uso"]), value=int(linha_ed["Estoque Total"]), step=1, key="num_edit_qtd")
-            
-            if st.button("SALVAR ALTERAÇÕES DO EQUIPAMENTO", type="primary"):
-                nome_ed_limpo = corrigir_ortografia_ptbr(novo_nome_ed, maiusculo=True)
-                em_uso_atual = int(linha_ed["Em Uso"])
-                df_estoque.loc[df_estoque["Código"] == cod_ed, "Equipamento"] = nome_ed_limpo
-                df_estoque.loc[df_estoque["Código"] == cod_ed, "Categoria"] = nova_cat_ed
-                df_estoque.loc[df_estoque["Código"] == cod_ed, "Estoque Total"] = int(nova_qtd_ed)
-                df_estoque.loc[df_estoque["Código"] == cod_ed, "Disponível"] = int(nova_qtd_ed) - em_uso_atual
-                salvar_estoque(df_estoque, renumerar=True)
-                st.success(f"Equipamento '{nome_ed_limpo}' atualizado com sucesso!")
-                st.rerun()
+    # Identifica itens com o lápis ✏️ marcado ou com células alteradas diretamente na tabela
+    alteracoes_pendentes = []
+    if not df_editado_acervo.empty:
+        for i in range(len(df_editado_acervo)):
+            row_ed = df_editado_acervo.iloc[i]
+            row_orig = df_view_editor.iloc[i]
+            foi_modificado = (
+                str(row_ed["Categoria"]) != str(row_orig["Categoria"]) or
+                str(row_ed["Equipamento"]).strip() != str(row_orig["Equipamento"]).strip() or
+                int(row_ed["Estoque Total"]) != int(row_orig["Estoque Total"])
+            )
+            if bool(row_ed["Editar"]) or foi_modificado:
+                alteracoes_pendentes.append((row_orig, row_ed, foi_modificado))
 
+    if alteracoes_pendentes:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.info("✏️ **MODO DE EDIÇÃO ATIVO** — Revise os dados abaixo e digite a senha administrativa para confirmar a gravação.")
+        with st.form("form_confirmar_edicao_lapis"):
+            edicoes_finais = []
+            for row_orig, row_ed, foi_modificado in alteracoes_pendentes:
+                cod_item = str(row_orig["Código"]).zfill(3)
+                st.markdown(f"**Item Selecionado — Código `{cod_item}`**")
+                ce1, ce2, ce3 = st.columns([2, 1, 1])
+                with ce1:
+                    val_nome = st.text_input(
+                        f"Especificação (Cód {cod_item}):",
+                        value=str(row_ed["Equipamento"]),
+                        key=f"ed_nome_{cod_item}"
+                    )
+                with ce2:
+                    idx_c = CATEGORIAS_OFICIAIS.index(row_ed["Categoria"]) if row_ed["Categoria"] in CATEGORIAS_OFICIAIS else 0
+                    val_cat = st.selectbox(
+                        f"Setor (Cód {cod_item}):",
+                        options=CATEGORIAS_OFICIAIS,
+                        index=idx_c,
+                        key=f"ed_cat_{cod_item}"
+                    )
+                with ce3:
+                    min_qtd = int(row_orig["Em Uso"])
+                    val_qtd = st.number_input(
+                        f"Acervo Total (Cód {cod_item}):",
+                        min_value=min_qtd,
+                        value=max(min_qtd, int(row_ed["Estoque Total"])),
+                        step=1,
+                        key=f"ed_qtd_{cod_item}"
+                    )
+                edicoes_finais.append((cod_item, val_nome, val_cat, int(val_qtd), int(row_orig["Em Uso"])))
+
+            senha_conf_edicao = st.text_input("🔑 Digite a Senha Administrativa para Salvar as Alterações:", type="password")
+            confirmar_btn = st.form_submit_button("💾 CONFIRMAR E SALVAR EDIÇÃO", type="primary", use_container_width=True)
+
+            if confirmar_btn:
+                if senha_conf_edicao != SENHA_EXCLUSAO:
+                    st.error("Senha administrativa incorreta! As alterações não foram salvas.")
+                else:
+                    for cod_i, n_nome_i, n_cat_i, n_qtd_i, em_uso_i in edicoes_finais:
+                        nome_limpo = corrigir_ortografia_ptbr(n_nome_i, maiusculo=True)
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Equipamento"] = nome_limpo
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Categoria"] = n_cat_i
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Estoque Total"] = n_qtd_i
+                        df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] = n_qtd_i - em_uso_i
+                    salvar_estoque(df_estoque, renumerar=True)
+                    st.success("Alterações salvas e sincronizadas com sucesso no banco de dados!")
+                    st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("ZONA ADMINISTRATIVA — REMOVER EQUIPAMENTO DO ACERVO (SENHA EXCLUSIVA)"):
         st.warning("Atenção: A remoção de um item do acervo é permanente e renumerará os códigos seguintes para manter a sequência exata.")
         
