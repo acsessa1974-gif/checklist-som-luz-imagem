@@ -173,6 +173,13 @@ def carregar_eventos():
         for _, row in df_ev.iterrows():
             if pd.isna(row.get("ID")) or str(row.get("ID")).strip() == "":
                 continue
+            raw_json = json.loads(str(row["Itens JSON"]))
+            if isinstance(raw_json, dict):
+                itens_ev = raw_json.get("itens", [])
+                visita_ev = raw_json.get("visita_tecnica", None)
+            else:
+                itens_ev = raw_json
+                visita_ev = None
             eventos.append({
                 "id": str(row["ID"]).split(".")[0],
                 "evento": str(row["Evento"]),
@@ -183,7 +190,8 @@ def carregar_eventos():
                 "hora_galpao": str(row.get("Hora Galpão", "-")),
                 "hora_evento": str(row.get("Hora Evento", "-")),
                 "data_saida": str(row["Data Saída"]),
-                "itens": json.loads(str(row["Itens JSON"]))
+                "itens": itens_ev,
+                "visita_tecnica": visita_ev
             })
         return eventos
     except Exception:
@@ -196,6 +204,10 @@ def salvar_eventos(eventos):
     ]
     dados_tabela = []
     for ev in eventos:
+        pacote_json = {
+            "itens": ev["itens"],
+            "visita_tecnica": ev.get("visita_tecnica", None)
+        }
         dados_tabela.append({
             "ID": ev["id"],
             "Evento": ev["evento"],
@@ -206,7 +218,7 @@ def salvar_eventos(eventos):
             "Hora Galpão": ev.get("hora_galpao", "-"),
             "Hora Evento": ev.get("hora_evento", "-"),
             "Data Saída": ev["data_saida"],
-            "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
+            "Itens JSON": json.dumps(pacote_json, ensure_ascii=False)
         })
     df = pd.DataFrame(dados_tabela, columns=colunas)
     conn.update(worksheet="Eventos", data=df)
@@ -332,6 +344,16 @@ st.markdown("""
         margin-top: 0.5rem;
     }
 
+    .visita-box {
+        background-color: #1e293b;
+        border: 1px solid #0d9488;
+        border-left: 5px solid #2dd4bf;
+        border-radius: 6px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1rem;
+        color: #f8fafc;
+    }
+
     .stButton > button, .stDownloadButton > button {
         border-radius: 4px;
         font-weight: 600;
@@ -406,6 +428,29 @@ def calcular_rota_osm(endereco_destino):
         pass
     return None, None
 
+def exibir_resumo_visita_ui(vt):
+    if not vt:
+        return
+    st.markdown(f"""
+    <div class="visita-box">
+        <div style="font-size: 0.95rem; font-weight: 700; color: #2dd4bf; margin-bottom: 8px; text-transform: uppercase;">
+            📋 Dados da Visita Técnica Vinculada — {vt.get('Local', '-')} (Resp: {vt.get('Responsável', '-')})
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; font-size: 0.84rem;">
+            <div><strong>🕒 Horário / Passagem:</strong> {vt.get('Horário/Passagem') or '-'}</div>
+            <div><strong>⚡ Elétrica / Distância:</strong> {vt.get('Elétrica') or '-'} ({vt.get('Distância Energia') or '-'})</div>
+            <div><strong>🔨 Pré-Montagem:</strong> {vt.get('Pré Montagem') or '-'}</div>
+            <div><strong>📏 Pé-Direito / Palco:</strong> {vt.get('Pé Direito') or '-'} | {vt.get('Palco') or '-'}</div>
+            <div><strong>🔊 Sonorização:</strong> {vt.get('Sonorização') or '-'}</div>
+            <div><strong>💡 Iluminação:</strong> {vt.get('Iluminação') or '-'}</div>
+            <div><strong>📺 Painel de LED:</strong> {vt.get('Painel LED') or '-'}</div>
+            <div><strong>🚚 Doca / Acesso:</strong> {vt.get('Doca/Caminhão') or '-'} | {vt.get('Dificuldades') or '-'}</div>
+            <div><strong>📞 Riders / Contatos:</strong> {vt.get('Riders/Contatos') or '-'}</div>
+            <div><strong>📝 Observações:</strong> {vt.get('Observações') or '-'}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 def gerar_pdf_checklist(ev):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
@@ -415,6 +460,7 @@ def gerar_pdf_checklist(ev):
     estilo_titulo = ParagraphStyle('TituloDoc', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0f172a'), alignment=1)
     estilo_cab_empresa = ParagraphStyle('CabEmpresa', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.white, alignment=0)
     estilo_info = ParagraphStyle('InfoCab', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=12, textColor=colors.HexColor('#1e293b'))
+    estilo_vt_info = ParagraphStyle('VtInfo', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=11, textColor=colors.HexColor('#0f172a'))
     estilo_celula = ParagraphStyle('CelulaTabela', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a'))
     estilo_celula_bold = ParagraphStyle('CelulaTabelaBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.HexColor('#0f172a'), alignment=1)
     estilo_th = ParagraphStyle('TabelaHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8.5, leading=11, textColor=colors.white, alignment=1)
@@ -467,7 +513,30 @@ def gerar_pdf_checklist(ev):
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#cbd5e1')),
     ]))
     elementos.append(t_info)
-    elementos.append(Spacer(1, 10))
+    elementos.append(Spacer(1, 8))
+
+    # Se houver Visita Técnica vinculada ao evento, imprime o quadro técnico no PDF
+    vt = ev.get("visita_tecnica")
+    if vt and isinstance(vt, dict):
+        vt_dados = [
+            [Paragraph("<b>DADOS DA VISITA TÉCNICA VINCULADA AO EVENTO</b>", estilo_info), Paragraph(f"<b>Resp. Visita:</b> {vt.get('Responsável', '-')}", estilo_vt_info)],
+            [Paragraph(f"<b>Horário/Passagem:</b> {vt.get('Horário/Passagem') or '-'}", estilo_vt_info), Paragraph(f"<b>Elétrica / Dist.:</b> {vt.get('Elétrica') or '-'} ({vt.get('Distância Energia') or '-'})", estilo_vt_info)],
+            [Paragraph(f"<b>Sonorização:</b> {vt.get('Sonorização') or '-'}", estilo_vt_info), Paragraph(f"<b>Iluminação:</b> {vt.get('Iluminação') or '-'}", estilo_vt_info)],
+            [Paragraph(f"<b>Painel LED:</b> {vt.get('Painel LED') or '-'}", estilo_vt_info), Paragraph(f"<b>Palco / Pé-Direito:</b> {vt.get('Palco') or '-'} | {vt.get('Pé Direito') or '-'}", estilo_vt_info)],
+            [Paragraph(f"<b>Doca / Caminhão:</b> {vt.get('Doca/Caminhão') or '-'}", estilo_vt_info), Paragraph(f"<b>Dificuldades:</b> {vt.get('Dificuldades') or '-'}", estilo_vt_info)],
+            [Paragraph(f"<b>Pré-Montagem:</b> {vt.get('Pré Montagem') or '-'}", estilo_vt_info), Paragraph(f"<b>Obs. Visita:</b> {vt.get('Observações') or '-'}", estilo_vt_info)]
+        ]
+        t_vt = Table(vt_dados, colWidths=[275, 270])
+        t_vt.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ccfbf1')),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f0fdfa')),
+            ('PADDING', (0,0), (-1,-1), 5),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#0d9488')),
+            ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#99f6e4')),
+        ]))
+        elementos.append(t_vt)
+        elementos.append(Spacer(1, 8))
 
     cabecalho_tabela = [
         Paragraph("<b>CÓD.</b>", estilo_th),
@@ -848,7 +917,6 @@ if menu == "VISÃO GERAL DO ACERVO":
         }
     )
 
-    # Identifica itens com o lápis ✏️ marcado ou com células alteradas diretamente na tabela
     alteracoes_pendentes = []
     if not df_editado_acervo.empty:
         for i in range(len(df_editado_acervo)):
@@ -935,20 +1003,42 @@ if menu == "VISÃO GERAL DO ACERVO":
                 st.rerun()
 
 # =====================================================================
-# MÓDULO 2: EXPEDIÇÃO (SAÍDA)
+# MÓDULO 2: EXPEDIÇÃO (SAÍDA) COM INTEGRAÇÃO DE VISITA TÉCNICA
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento (Kits e Itens)</div>', unsafe_allow_html=True)
     st.caption(f"📍 Origem da Carga (Galpão A.C.S.): {ENDERECO_GALPAO} | 🇧🇷 Corretor Ortográfico PT-BR Ativo")
 
+    # SELETOR DE VISITA TÉCNICA PARA VINCULAR À SAÍDA
+    visita_vinculada = None
+    default_evento = ""
+    default_end = ""
+
+    if visitas_tecnicas:
+        opcoes_vt_exp = ["--- Nenhuma visita técnica selecionada (Preenchimento Manual) ---"] + [
+            f"📋 {v.get('Local', 'Sem Local')} | Horário: {v.get('Horário/Passagem', '-')} | Resp: {v.get('Responsável', '-')}"
+            for v in visitas_tecnicas
+        ]
+        idx_vt_sel = st.selectbox(
+            "🔗 VINCULAR DADOS DE UMA VISITA TÉCNICA REALIZADA (OPCIONAL):",
+            range(len(opcoes_vt_exp)),
+            format_func=lambda i: opcoes_vt_exp[i]
+        )
+        if idx_vt_sel > 0:
+            visita_vinculada = visitas_tecnicas[idx_vt_sel - 1]
+            default_evento = str(visita_vinculada.get("Local", ""))
+            default_end = str(visita_vinculada.get("Local", ""))
+            exibir_resumo_visita_ui(visita_vinculada)
+
     col_ev1, col_ev2 = st.columns(2)
     with col_ev1:
-        nome_evento = st.text_input("Identificação do Evento / Cliente:", placeholder="Ex: Convenção Corporativa - Barra")
+        nome_evento = st.text_input("Identificação do Evento / Cliente:", value=default_evento, placeholder="Ex: Convenção Corporativa - Barra")
         tecnico_resp = st.text_input("Responsável Técnico pela Retirada:", placeholder="Nome completo do responsável")
         data_saida = st.date_input("Data de Expedição:", datetime.now(), format="DD/MM/YYYY")
     with col_ev2:
         termo_busca_end = st.text_input(
             "Pesquisar Endereço de Destino (Autocompletar Online):",
+            value=default_end,
             placeholder="Digite parte do local ou rua (ex: Riocentro, Copacabana)..."
         )
         
@@ -1123,12 +1213,16 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     "hora_galpao": hora_galpao.strftime("%H:%M"),
                     "hora_evento": hora_evento.strftime("%H:%M"),
                     "data_saida": data_saida.strftime("%d/%m/%Y"),
-                    "itens": lista_itens_evento
+                    "itens": lista_itens_evento,
+                    "visita_tecnica": visita_vinculada
                 }
                 eventos_ativos.append(novo_evento)
                 salvar_eventos(eventos_ativos)
                 
-                registrar_historico("EXPEDIÇÃO", nome_ev_corrigido, resp_corrigido, "; ".join(resumo_log), f"Destino: {end_corrigido} | Tempo est.: {tempo_str}")
+                obs_hist = f"Destino: {end_corrigido} | Tempo est.: {tempo_str}"
+                if visita_vinculada:
+                    obs_hist += f" | Visita Técnica Vinculada: {visita_vinculada.get('Local', '-')}"
+                registrar_historico("EXPEDIÇÃO", nome_ev_corrigido, resp_corrigido, "; ".join(resumo_log), obs_hist)
                 st.session_state.carrinho_saida = {}
                 st.success(f"Operação registrada com sucesso para o evento '{nome_ev_corrigido}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
@@ -1147,12 +1241,16 @@ elif menu == "EMISSÃO DE CHECKLIST":
         ev_imp = eventos_ativos[idx_imp]
         
         st.markdown("<br>", unsafe_allow_html=True)
+
+        # Exibe os dados da visita técnica vinculada na tela do Checklist, caso exista
+        if ev_imp.get("visita_tecnica"):
+            exibir_resumo_visita_ui(ev_imp["visita_tecnica"])
         
         pdf_bytes = gerar_pdf_checklist(ev_imp)
         nome_arq_pdf = f"Checklist_{ev_imp['evento'].replace(' ', '_')}_{ev_imp['id']}.pdf"
         
         st.download_button(
-            label="📄 BAIXAR CHECKLIST EM PDF PROFISSIONAL (COM LOGOMARCA)",
+            label="📄 BAIXAR CHECKLIST EM PDF PROFISSIONAL (COM DADOS DA VISITA E LOGOMARCA)",
             data=pdf_bytes,
             file_name=nome_arq_pdf,
             mime="application/pdf",
@@ -1198,6 +1296,9 @@ elif menu == "RETORNO E CONFERÊNCIA":
         ev_selecionado_idx = st.selectbox("Selecione a operação em retorno:", range(len(opcoes_ev)), format_func=lambda x: opcoes_ev[x])
         
         ev_atual = eventos_ativos[ev_selecionado_idx]
+
+        if ev_atual.get("visita_tecnica"):
+            exibir_resumo_visita_ui(ev_atual["visita_tecnica"])
         
         df_ret = pd.DataFrame(ev_atual["itens"])
         df_ret["Código"] = df_ret["Código"].astype(str).str.zfill(3)
