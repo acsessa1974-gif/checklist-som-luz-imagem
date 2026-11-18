@@ -33,27 +33,34 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_estoque():
     try:
-        df = conn.read(worksheet="Estoque", ttl=0)
+        df = conn.read(worksheet="Estoque", ttl=5)
+        df = df.dropna(how="all")
         if not df.empty and "Estoque Total" in df.columns:
-            df["Código"] = df["Código"].astype(str).str.zfill(3)
+            df["Código"] = pd.to_numeric(df["Código"], errors="coerce").fillna(0).astype(int).astype(str).str.zfill(3)
+            for col in ["Estoque Total", "Disponível", "Em Uso"]:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
             return df
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Verifique se a planilha está compartilhada como Editor com a conta de serviço. Detalhe: {e}")
     return pd.DataFrame()
 
 def salvar_estoque(df):
-    conn.update(worksheet="Estoque", data=df)
-    st.cache_data.clear()
+    if df is not None and not df.empty:
+        conn.update(worksheet="Estoque", data=df)
+        st.cache_data.clear()
 
 def carregar_eventos():
     try:
-        df_ev = conn.read(worksheet="Eventos", ttl=0)
-        if df_ev.empty:
+        df_ev = conn.read(worksheet="Eventos", ttl=5)
+        df_ev = df_ev.dropna(how="all")
+        if df_ev.empty or "ID" not in df_ev.columns:
             return []
         eventos = []
         for _, row in df_ev.iterrows():
+            if pd.isna(row.get("ID")) or str(row.get("ID")).strip() == "":
+                continue
             eventos.append({
-                "id": str(row["ID"]),
+                "id": str(row["ID"]).split(".")[0],
                 "evento": str(row["Evento"]),
                 "responsavel": str(row["Responsável"]),
                 "endereco": str(row.get("Endereço", "-")),
@@ -69,6 +76,10 @@ def carregar_eventos():
         return []
 
 def salvar_eventos(eventos):
+    colunas = [
+        "ID", "Evento", "Responsável", "Endereço", "Distância",
+        "Tempo Estimado", "Hora Galpão", "Hora Evento", "Data Saída", "Itens JSON"
+    ]
     dados_tabela = []
     for ev in eventos:
         dados_tabela.append({
@@ -83,13 +94,14 @@ def salvar_eventos(eventos):
             "Data Saída": ev["data_saida"],
             "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
         })
-    df = pd.DataFrame(dados_tabela)
+    df = pd.DataFrame(dados_tabela, columns=colunas)
     conn.update(worksheet="Eventos", data=df)
     st.cache_data.clear()
 
 def carregar_visitas():
     try:
-        df_v = conn.read(worksheet="Visitas", ttl=0)
+        df_v = conn.read(worksheet="Visitas", ttl=5)
+        df_v = df_v.dropna(how="all")
         if df_v.empty:
             return []
         return df_v.to_dict("records")
@@ -97,7 +109,12 @@ def carregar_visitas():
         return []
 
 def salvar_visitas(visitas):
-    df = pd.DataFrame(visitas)
+    colunas = [
+        "Data Registro", "Responsável", "Local", "Horário/Passagem", "Elétrica",
+        "Pré Montagem", "Pé Direito", "Painel LED", "Iluminação", "Sonorização",
+        "Riders/Contatos", "Palco", "Doca/Caminhão", "Dificuldades", "Distância Energia", "Observações"
+    ]
+    df = pd.DataFrame(visitas, columns=colunas) if visitas else pd.DataFrame(columns=colunas)
     conn.update(worksheet="Visitas", data=df)
     st.cache_data.clear()
 
@@ -112,7 +129,8 @@ def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-")
         "Observações Técnicas": observacao
     }
     try:
-        df_hist = conn.read(worksheet="Historico", ttl=0)
+        df_hist = conn.read(worksheet="Historico", ttl=5)
+        df_hist = df_hist.dropna(how="all")
         if df_hist.empty:
             df_hist = pd.DataFrame([novo_reg])
         else:
@@ -650,8 +668,8 @@ k1, k2, k3, k4 = st.columns(4)
 with k1:
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-label">Total de Unidades no Acervo</div>
-        <div class="kpi-value">{int(df_estoque['Estoque Total'].sum()) if not df_estoque.empty else 0}</div>
+        <div class="kpi-label">Total de Itens Cadastrados</div>
+        <div class="kpi-value">{len(df_estoque)} ({int(df_estoque['Estoque Total'].sum()) if not df_estoque.empty else 0} un)</div>
     </div>
     """, unsafe_allow_html=True)
 with k2:
@@ -1069,7 +1087,7 @@ elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
     
     try:
-        ultimo_codigo = int(df_estoque["Código"].max()) if not df_estoque.empty else 0
+        ultimo_codigo = int(df_estoque["Código"].astype(int).max()) if not df_estoque.empty else 0
         proximo_codigo = str(ultimo_codigo + 1).zfill(3)
     except Exception:
         proximo_codigo = "001"
@@ -1106,7 +1124,8 @@ elif menu == "CADASTRO DE MATERIAIS":
 elif menu == "HISTÓRICO DE OPERAÇÕES":
     st.markdown('<div class="section-header">Auditoria e Histórico de Relatórios de Saída e Retorno</div>', unsafe_allow_html=True)
     try:
-        df_h = conn.read(worksheet="Historico", ttl=0)
+        df_h = conn.read(worksheet="Historico", ttl=5)
+        df_h = df_h.dropna(how="all")
     except Exception:
         df_h = pd.DataFrame()
 
@@ -1160,6 +1179,7 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
                 else:
                     df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
                     conn.update(worksheet="Historico", data=df_h_novo)
+                    st.cache_data.clear()
                     st.success(f"{len(indices_para_apagar)} relatório(s) apagado(s) com sucesso!")
                     st.rerun()
 
