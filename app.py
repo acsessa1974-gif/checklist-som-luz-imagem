@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import os
 import json
@@ -24,6 +25,102 @@ st.set_page_config(
 # =====================================================================
 SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
 SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios e itens
+
+# =====================================================================
+# CONEXÃO COM O GOOGLE SHEETS
+# =====================================================================
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def carregar_estoque():
+    try:
+        df = conn.read(worksheet="Estoque", ttl=0)
+        if not df.empty and "Estoque Total" in df.columns:
+            df["Código"] = df["Código"].astype(str).str.zfill(3)
+            return df
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+def salvar_estoque(df):
+    conn.update(worksheet="Estoque", data=df)
+    st.cache_data.clear()
+
+def carregar_eventos():
+    try:
+        df_ev = conn.read(worksheet="Eventos", ttl=0)
+        if df_ev.empty:
+            return []
+        eventos = []
+        for _, row in df_ev.iterrows():
+            eventos.append({
+                "id": str(row["ID"]),
+                "evento": str(row["Evento"]),
+                "responsavel": str(row["Responsável"]),
+                "endereco": str(row.get("Endereço", "-")),
+                "distancia": str(row.get("Distância", "-")),
+                "tempo_estimado": str(row.get("Tempo Estimado", "-")),
+                "hora_galpao": str(row.get("Hora Galpão", "-")),
+                "hora_evento": str(row.get("Hora Evento", "-")),
+                "data_saida": str(row["Data Saída"]),
+                "itens": json.loads(str(row["Itens JSON"]))
+            })
+        return eventos
+    except Exception:
+        return []
+
+def salvar_eventos(eventos):
+    dados_tabela = []
+    for ev in eventos:
+        dados_tabela.append({
+            "ID": ev["id"],
+            "Evento": ev["evento"],
+            "Responsável": ev["responsavel"],
+            "Endereço": ev.get("endereco", "-"),
+            "Distância": ev.get("distancia", "-"),
+            "Tempo Estimado": ev.get("tempo_estimado", "-"),
+            "Hora Galpão": ev.get("hora_galpao", "-"),
+            "Hora Evento": ev.get("hora_evento", "-"),
+            "Data Saída": ev["data_saida"],
+            "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
+        })
+    df = pd.DataFrame(dados_tabela)
+    conn.update(worksheet="Eventos", data=df)
+    st.cache_data.clear()
+
+def carregar_visitas():
+    try:
+        df_v = conn.read(worksheet="Visitas", ttl=0)
+        if df_v.empty:
+            return []
+        return df_v.to_dict("records")
+    except Exception:
+        return []
+
+def salvar_visitas(visitas):
+    df = pd.DataFrame(visitas)
+    conn.update(worksheet="Visitas", data=df)
+    st.cache_data.clear()
+
+def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-"):
+    data_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    novo_reg = {
+        "Data/Hora": data_hora,
+        "Operação": acao,
+        "Evento / Projeto": evento,
+        "Responsável Técnico": responsavel,
+        "Relação de Material": resumo_itens,
+        "Observações Técnicas": observacao
+    }
+    try:
+        df_hist = conn.read(worksheet="Historico", ttl=0)
+        if df_hist.empty:
+            df_hist = pd.DataFrame([novo_reg])
+        else:
+            df_hist = pd.concat([df_hist, pd.DataFrame([novo_reg])], ignore_index=True)
+        conn.update(worksheet="Historico", data=df_hist)
+        st.cache_data.clear()
+    except Exception:
+        pass
 
 # =====================================================================
 # ESTILIZAÇÃO CORPORATIVA (CSS) RESPONSIVA
@@ -137,14 +234,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================================================
-# ARQUIVOS E BANCO DE DADOS
-# =====================================================================
-ARQUIVO_ESTOQUE = "estoque_acs_quantidades.xlsx"
-ARQUIVO_EVENTOS = "eventos_ativos_acs.xlsx"
-ARQUIVO_HISTORICO = "historico_eventos_acs.xlsx"
-ARQUIVO_VISITAS = "visitas_tecnicas_acs.xlsx"
-
 ENDERECO_GALPAO = "Rua São Severino, 16, Taquara, Rio de Janeiro, RJ"
 
 def carregar_logo():
@@ -206,343 +295,6 @@ def calcular_rota_osm(endereco_destino):
     except Exception:
         pass
     return None, None
-
-def carregar_estoque():
-    if os.path.exists(ARQUIVO_ESTOQUE):
-        try:
-            df = pd.read_excel(ARQUIVO_ESTOQUE)
-            if "Estoque Total" in df.columns:
-                df["Código"] = df["Código"].astype(str).str.zfill(3)
-                return df
-        except Exception:
-            pass
-
-    dados_iniciais = [
-        # Áudio
-        ("001", "CAIXA SUBGRAVE DUPLA LS ÁUDIO SLIMPEC 218", 8, "Áudio"),
-        ("002", "CAIXA DE PA LINE ARRAY LS ÁUDIO SLIMPEC 4280", 24, "Áudio"),
-        ("003", "CAIXA SUBGRAVE SB800", 6, "Áudio"),
-        ("004", "CAIXA KF SIDE", 2, "Áudio"),
-        ("005", "CAIXA G SUB", 8, "Áudio"),
-        ("006", "CAIXA MEIA SB", 2, "Áudio"),
-        ("007", "CAIXA ALTA 2/1", 6, "Áudio"),
-        ("008", "CAIXA ATTACK PASSIVA", 16, "Áudio"),
-        ("009", "CAIXA DE MONITOR CLAIR 112", 6, "Áudio"),
-        ("010", "CAIXA CÓPIA DA CLAIR", 4, "Áudio"),
-        ("011", "CAIXA CLAIR PARA MONTAGEM", 6, "Áudio"),
-        ("012", "CAIXA ATIVA 15PL TAPIOCA / MACKIE", 12, "Áudio"),
-        ("013", "CAIXA TURBOSOUND IP2000 ULTRA FINO", 2, "Áudio"),
-        ("014", "CAIXA TURBOSOUND IQ12", 2, "Áudio"),
-        ("015", "CAIXA TURBOSOUND IQ18", 2, "Áudio"),
-        ("016", "CAIXA SKP (1 PERDIDA)", 2, "Áudio"),
-        ("017", "CAIXA PEAVEY PBK", 2, "Áudio"),
-        ("018", "CAIXA CELESTION", 2, "Áudio"),
-        ("019", "CAIXA PZ PX-12A", 2, "Áudio"),
-        ("020", "CAIXA DATREL", 1, "Áudio"),
-        ("021", "CAIXA PASSIVA 8PL FULLRANGE", 2, "Áudio"),
-        ("022", "CAIXA PASSIVA 8PL BI-AMP", 4, "Áudio"),
-        ("023", "CAIXA ELECTRO-VOICE ZLX 12PL", 6, "Áudio"),
-        ("024", "CAIXA MJ (2 COM RAPHAEL)", 12, "Áudio"),
-        ("025", "CAIXA ALTA ANTERA TS500A", 2, "Áudio"),
-        ("026", "CAIXA SUBGRAVE ANTERA LF1000A", 2, "Áudio"),
-        ("027", "CAIXA ALTA YAMAHA DXR10", 2, "Áudio"),
-        ("028", "CAIXA SUBGRAVE YAMAHA DXS12 MKII", 2, "Áudio"),
-        ("029", "CAIXA ATTACK VRM1230A", 3, "Áudio"),
-        ("030", "MICROFONE SHURE BETA 91A", 1, "Áudio"),
-        ("031", "MICROFONE E604 SENNHEISER", 8, "Áudio"),
-        ("032", "MICROFONE AKG D112", 1, "Áudio"),
-        ("033", "MICROFONE SHURE SM57", 7, "Áudio"),
-        ("034", "MICROFONE MXT / SM57", 10, "Áudio"),
-        ("035", "MICROFONE RELACART SM300", 8, "Áudio"),
-        ("036", "MICROFONE SM57 KADOSCH", 4, "Áudio"),
-        ("037", "MICROFONE SHURE SM58", 16, "Áudio"),
-        ("038", "MICROFONE AKG P2", 2, "Áudio"),
-        ("039", "MICROFONE AKG P4", 4, "Áudio"),
-        ("040", "MICROFONE SAMSON C02", 4, "Áudio"),
-        ("041", "MICROFONE SAMSON C02H", 2, "Áudio"),
-        ("042", "KIT DE MICROFONE DE BATERIA JTS", 1, "Áudio"),
-        ("043", "TRANSMISSOR SHURE PSM900 P9T", 1, "Áudio"),
-        ("044", "BODYPACK SHURE PSM900 P9R L6 (656/692 MHZ)", 1, "Áudio"),
-        ("045", "SISTEMA IN-EAR SENNHEISER EW300 G3 (516/558 MHZ)", 2, "Áudio"),
-        ("046", "BODYPACK SENNHEISER EK300", 4, "Áudio"),
-        ("047", "RELACART PM-320 (522-554 MHZ)", 5, "Áudio"),
-        ("048", "BODYPACK RELACART PM-320R", 10, "Áudio"),
-        ("049", "COMBINADOR RELACART TAC4", 2, "Áudio"),
-        ("050", "ANTENA IN-EAR RELACART R-32U", 2, "Áudio"),
-        ("051", "BASE RELACART UR222D (522/586 MHZ)", 2, "Áudio"),
-        ("052", "MICROFONE SEM FIO BASTÃO RELACART UH-222 (522/651 MHZ)", 4, "Áudio"),
-        ("053", "TRANSMISSOR DE CORPO RELACART UT-222 (522/651 MHZ)", 2, "Áudio"),
-        ("054", "BASE DUPLA UR2Q RELACART", 2, "Áudio"),
-        ("055", "TRANSMISSOR RELACART", 8, "Áudio"),
-        ("056", "ANTENA RELACART ATIVA", 2, "Áudio"),
-        ("057", "BASE SEM FIO SHURE PGX4", 1, "Áudio"),
-        ("058", "MICROFONE SEM FIO BASTÃO SHURE PGX2", 1, "Áudio"),
-        ("059", "BASE SEM FIO SENNHEISER EM 3732-II", 1, "Áudio"),
-        ("060", "MICROFONE SEM FIO SENNHEISER SKM 5200", 2, "Áudio"),
-        ("061", "BASE SHURE BLX4R", 4, "Áudio"),
-        ("062", "MICROFONE SEM FIO BASTÃO SHURE BLX2 H10 (542/572 MHZ)", 4, "Áudio"),
-        ("063", "AMPLIFICADOR DE SINAL PAULKITSON UA80", 1, "Áudio"),
-        ("064", "ANTENA PAULKITSON", 2, "Áudio"),
-        ("065", "BASE AKG SR450", 3, "Áudio"),
-        ("066", "TRANSMISSOR DE CORPO AKG PT450", 3, "Áudio"),
-        ("067", "BASE SHURE UR4D", 9, "Áudio"),
-        ("068", "BASE SHURE UR4D+", 7, "Áudio"),
-        ("069", "MICROFONE SEM FIO BASTÃO SHURE UR4", 8, "Áudio"),
-        ("070", "TRANSMISSOR SHURE UR1M", 20, "Áudio"),
-        ("071", "ANTENA RELACART", 6, "Áudio"),
-        ("072", "AMPLIFICADOR DE FONES POWERPLAY ASA", 1, "Áudio"),
-        ("073", "AMPLIFICADOR DE FONES POWERPLAY EAM", 1, "Áudio"),
-        ("074", "BODYPACK EAM", 8, "Áudio"),
-        ("075", "AMPLIFICADOR DE FONES BEHRINGER", 2, "Áudio"),
-        ("076", "AMPLIFICADOR DE FONES PHONIC", 1, "Áudio"),
-        ("077", "AMPLIFICADOR DE FONES SAMSON", 1, "Áudio"),
-        ("078", "FONE DE OUVIDO", 34, "Áudio"),
-        ("079", "SUB-SNAKE DE 12 VIAS", 5, "Áudio"),
-        ("080", "SUB-SNAKE DE 8 VIAS", 2, "Áudio"),
-        ("081", "MEDUSA DE BATERIA DE 12 VIAS", 2, "Áudio"),
-        ("082", "MEDUSA SPLITADA DE 32 VIAS GRANDE", 1, "Áudio"),
-        ("083", "MEDUSA DE 36 VIAS (RUIM)", 1, "Áudio"),
-
-        # Backline
-        ("084", "BATERIA ACÚSTICA GRETSCH BLACK HAWK", 1, "Backline"),
-        ("085", "BATERIA ACÚSTICA PEARL EXPORT", 1, "Backline"),
-        ("086", "BATERIA ACÚSTICA PEARL VISION", 1, "Backline"),
-        ("087", "BATERIA ELETRÔNICA ROLAND V-DRUMS TD-12", 1, "Backline"),
-        ("088", "CABEÇOTE DE BAIXO BORNE PRO 800", 1, "Backline"),
-        ("089", "CABEÇOTE DE BAIXO GK 400 BR", 1, "Backline"),
-        ("090", "AMPLIFICADOR DE BAIXO HARTKE", 1, "Backline"),
-        ("091", "AMPLIFICADOR DE GUITARRA PEAVEY BANDIT 112", 2, "Backline"),
-        ("092", "CAIXA DE BAIXO WARWICK 4X10", 1, "Backline"),
-        ("093", "CAIXA DE BAIXO WARWICK 1X15", 1, "Backline"),
-        ("094", "AMPLIFICADOR DE GUITARRA FENDER FRONTMAN 212R", 1, "Backline"),
-        ("095", "AMPLIFICADOR DE GUITARRA METEORO", 1, "Backline"),
-        ("096", "MESA DE SOM YAMAHA 01V", 3, "Áudio"),
-        ("097", "MESA DE SOM YAMAHA LS9-32", 2, "Áudio"),
-        ("098", "MESA DE SOM MIDAS M32", 1, "Áudio"),
-        ("099", "MESA DE SOM YAMAHA TF5", 1, "Áudio"),
-        ("100", "MESA DE SOM SOUNDCRAFT UI24R", 1, "Áudio"),
-        ("101", "MESA DE SOM BEHRINGER X-AIR XR18", 1, "Áudio"),
-        ("102", "MESA DE SOM PHONIC AM105 (2 CANAIS)", 1, "Áudio"),
-        ("103", "MESA DE SOM PHONIC DE 4 CANAIS", 1, "Áudio"),
-        ("104", "MESA DE SOM WALDMAN ST-8DSP (6 CANAIS)", 1, "Áudio"),
-        ("105", "MESA DE SOM SOUNDCRAFT SIGNATURE 12", 1, "Áudio"),
-        ("106", "MESA DE SOM YAMAHA MG12XU", 1, "Áudio"),
-        ("107", "MESA DE SOM SOUNDVOICE AUREA MD-12", 1, "Áudio"),
-
-        # Iluminação
-        ("108", "MESA DMX MINI AVOLITES 1024", 2, "Luz"),
-        ("109", "MESA DE LUZ AVOLITES", 2, "Luz"),
-        ("110", "MESA DE LUZ GRAND MA", 1, "Luz"),
-        ("111", "DMX CONROLLER", 1, "Luz"),
-        ("112", "STROBO LED RGBW FITA", 16, "Luz"),
-        ("113", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE", 1, "Luz"),
-        ("114", "MAIN POWER GRANDE", 2, "Luz"),
-        ("115", "MAIN POWER PEQUENO", 2, "Luz"),
-        ("116", "SPLIT DE SINAL", 5, "Luz"),
-        ("117", "SPLIT WIRELESS", 1, "Luz"),
-        ("118", "PAR LED PEQUENO RGB ANTIGO", 40, "Luz"),
-        ("119", "PAR LED RGBW NOVO", 60, "Luz"),
-        ("120", "PAR LED GRANDE RGB ANTIGO", 29, "Luz"),
-        ("121", "MINI BRUT DE LED", 4, "Luz"),
-        ("122", "MINI CANHÃO DE LUZ", 1, "Luz"),
-        ("123", "PAR LED BLINDADO", 31, "Luz"),
-        ("124", "PAR 38", 60, "Luz"),
-        ("125", "REFLETOR AR111", 70, "Luz"),
-        ("126", "MOVING BEAM 230 BORDA DE LED", 6, "Luz"),
-        ("127", "MOVING BEAM 9R", 13, "Luz"),
-        ("128", "MOVING BEAM 7R", 5, "Luz"),
-        ("129", "COB 200W LEVE", 2, "Luz"),
-        ("130", "COB 200W BLINDADO", 8, "Luz"),
-        ("131", "VARAS DE AR 1M", 8, "Luz"),
-        ("132", "VARAS DE AR 2M", 8, "Luz"),
-        ("133", "PAR LED SPOT PRETO", 10, "Luz"),
-        ("134", "PAR LED SPOT BRANCO", 10, "Luz"),
-        ("135", "REFLETOR DE 300W", 3, "Luz"),
-        ("136", "REFLETOR VERDE", 10, "Luz"),
-        ("137", "REFLETOR BRANCO QUENTE DE 100W", 2, "Luz"),
-        ("138", "REFLETOR BRANCO QUENTE 200W", 1, "Luz"),
-        ("139", "RIBALTA RGBW", 24, "Luz"),
-        ("140", "CANHÃO SKY WALKER", 2, "Luz"),
-        ("141", "RIBALTA ANTIGA", 10, "Luz"),
-        ("142", "GARRA DE PAR LED", 76, "Luz"),
-        ("143", "GARRA DE MOVING", 65, "Luz"),
-        ("144", "MULTIVIAS DE XLR", 1, "Luz"),
-        ("145", "MÁQUINA DE BOLHAS", 2, "Luz"),
-
-        # Estruturas
-        ("146", "BOX TRUSS 3.0M", 10, "Estruturas"),
-        ("147", "BOX TRUSS 2.0M", 16, "Estruturas"),
-        ("148", "BOX TRUSS 1.0M", 9, "Estruturas"),
-        ("149", "BOX TRUSS 0.50M", 6, "Estruturas"),
-        ("150", "CUBO", 15, "Estruturas"),
-        ("151", "FACEADA", 6, "Estruturas"),
-        ("152", "MEIA LUA", 4, "Estruturas"),
-        ("153", "BASE", 12, "Estruturas"),
-        ("154", "BASE ALTA", 2, "Estruturas"),
-        ("155", "SLEEVE", 4, "Estruturas"),
-        ("156", "PAU DE CARGA", 4, "Estruturas"),
-        ("157", "CUMIERA", 6, "Estruturas"),
-        ("158", "PARAFUSOS NOVOS", 150, "Estruturas"),
-        ("159", "PARAFUSO DIVERSOS", 40, "Estruturas"),
-        ("160", "PARAFUSO SEM PORCA", 30, "Estruturas"),
-        ("161", "GREPO", 8, "Estruturas"),
-        ("162", "PRATICÁVEL 2.0M X 1.00M", 49, "Estruturas"),
-        ("163", "PRATICÁVEL 0.50M X 1.0M", 2, "Estruturas"),
-        ("164", "PRATICÁVEL 1.0M X 1.0M", 2, "Estruturas"),
-
-        # Cabos e Acessórios
-        ("165", "PEDESTAL", 41, "Acessórios"),
-        ("166", "RÉGUA DE ENERGIA POWERCON", 14, "Acessórios"),
-        ("167", "RÉGUA DE ENERGIA POWERCON SAS", 6, "Acessórios"),
-        ("168", "RÉGUA DE ENERGIA POWERCON / POWERCON", 4, "Acessórios"),
-        ("169", "PROCESSADOR BEHRINGER", 1, "Áudio"),
-        ("170", "PROCESSADOR DBX", 3, "Áudio"),
-        ("171", "AMPLIFICADOR CROWN XTI 1000", 1, "Áudio"),
-        ("172", "AMPLIFICADOR CROWN XTI 4000", 2, "Áudio"),
-        ("173", "AMPLIFICADOR CROWN XTI 6000", 1, "Áudio"),
-        ("174", "HOT SOUND HS PRO 5", 1, "Áudio"),
-        ("175", "HOT SOUND DIGILITE 6.4", 1, "Áudio"),
-        ("176", "HOT SOUND DIGILITE 8.0", 1, "Áudio"),
-        ("177", "YAMAHA P3200", 1, "Áudio"),
-        ("178", "AMPLIFICADOR CROWN / CARVER (RUIM)", 3, "Áudio"),
-        ("179", "STUDIO R Z2400", 1, "Áudio"),
-        ("180", "STUDIO R XD", 1, "Áudio"),
-        ("181", "STUDIO R X5", 1, "Áudio"),
-        ("182", "STUDIO R X12", 1, "Áudio"),
-        ("183", "APD 4004 THUNDELIGHT", 2, "Áudio"),
-        ("184", "POWERTEC LS", 4, "Áudio"),
-        ("185", "RACK DE AC AZUL (RUIM)", 1, "Acessórios"),
-        ("186", "RACK DE AC NOVO", 1, "Acessórios"),
-        ("187", "CENTRAL DE ENERGIA", 4, "Acessórios"),
-        ("188", "ISOLADOR DE ÁUDIO GX200", 2, "Áudio"),
-        ("189", "DIRECT BOX WHIRLWIND IMP2", 5, "Áudio"),
-        ("190", "DIRECT BOX WALDMAN PASSIVA DI-1PS", 5, "Áudio"),
-        ("191", "DIRECT BOX WIRECONEX WDI600", 4, "Áudio"),
-        ("192", "DIRECT BOX WIRECONEX WDI500", 20, "Áudio"),
-        ("193", "DIRECT BOX WALDMAN ATIVA DI-1A", 7, "Áudio"),
-        ("194", "DIRECT BOX SAMSON ATIVA S. DIRECT", 3, "Áudio"),
-        ("195", "DIRECT BOX SAMSON ATIVA S. DIRECT PLUS", 1, "Áudio"),
-        ("196", "MOUSE PAD", 1, "Informática"),
-        ("197", "CPU WYSE DELL", 1, "Informática"),
-        ("198", "MONITOR DELL P2418HT", 1, "Informática"),
-        ("199", "FONTE DE MONITOR HA65NS5-00", 1, "Informática"),
-        ("200", "CABO RJ45", 1, "Informática"),
-        ("201", "CABO DISPLAYPORT", 1, "Informática"),
-        ("202", "CABO USB-SS DELL", 1, "Informática"),
-        ("203", "CABO DE FORÇA PARA FONTE", 1, "Informática"),
-        ("204", "JUMPER SPEAKON (4 VIAS - ALTAS)", 18, "Áudio"),
-        ("205", "JUMPER SPEAKON (2 VIAS - SUB)", 6, "Áudio"),
-        ("206", "CABO SPEAKON (4 VIAS - ALTAS)", 8, "Áudio"),
-        ("207", "CABO SPEAKON (2 VIAS - SUB)", 8, "Áudio"),
-        ("208", "CABO POWERCON / POWERCON", 20, "Acessórios"),
-        ("209", "CABO XLR DE 30 METROS", 8, "Áudio"),
-        ("210", "CABO XLR DE 10 METROS", 60, "Áudio"),
-        ("211", "CABO XLR DE 5 METROS", 90, "Áudio"),
-        ("212", "CABO XLR DA BARRA GARDEN - GRANADA DE 27 METROS", 1, "Luz"),
-        ("213", "CABO XLR DA BARRA GARDEN - GRANADA DE 17 METROS", 1, "Luz"),
-        ("214", "CABO XLR DA BARRA GARDEN - STECK / STECK", 5, "Luz"),
-        ("215", "CABO XLR DA BARRA GARDEN - SINGELOS", 4, "Luz"),
-        ("216", "CABO XLR DE SINAL", 200, "Luz"),
-        ("217", "CABO PP", 200, "Acessórios"),
-        ("218", "CABO PARALELO Y", 14, "Acessórios"),
-        ("219", "CENTOPÉIA GRANDE DE 2,5 MM", 11, "Acessórios"),
-        ("220", "CENTOPÉIA DE 1,5 MM TAMANHOS VARIADOS", 10, "Acessórios"),
-
-        # Equipamentos com Defeito
-        ("221", "CANHÃO SKY WALKER COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("222", "STROBO LED RGBW FITA COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("223", "MÁQUINA PEQUENA DE FUMAÇA FOG MACHINE COM DEFEITO", 1, "Equipamentos com Defeito"),
-        ("224", "MÁQUINA DE FUMAÇA HAZE COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("225", "MOVING BEAM 230 BORDA DE LED COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("226", "MOVING BEAM 9R COM DEFEITO", 3, "Equipamentos com Defeito"),
-        ("227", "MOVING BEAM 7R COM DEFEITO", 8, "Equipamentos com Defeito"),
-        ("228", "LASER COM DEFEITO", 2, "Equipamentos com Defeito"),
-        ("229", "STROBO ANTIGO COM DEFEITO", 2, "Equipamentos com Defeito")
-    ]
-
-    lista_estoque = [{
-        "Código": str(codigo).zfill(3),
-        "Categoria": cat,
-        "Equipamento": nome,
-        "Estoque Total": int(qtd),
-        "Disponível": int(qtd),
-        "Em Uso": 0
-    } for codigo, nome, qtd, cat in dados_iniciais]
-
-    df_inicial = pd.DataFrame(lista_estoque)
-    df_inicial.to_excel(ARQUIVO_ESTOQUE, index=False)
-    return df_inicial
-
-def salvar_estoque(df):
-    df.to_excel(ARQUIVO_ESTOQUE, index=False)
-
-def carregar_eventos():
-    if os.path.exists(ARQUIVO_EVENTOS):
-        try:
-            df_ev = pd.read_excel(ARQUIVO_EVENTOS)
-            eventos = []
-            for _, row in df_ev.iterrows():
-                eventos.append({
-                    "id": str(row["ID"]),
-                    "evento": str(row["Evento"]),
-                    "responsavel": str(row["Responsável"]),
-                    "endereco": str(row.get("Endereço", "-")),
-                    "distancia": str(row.get("Distância", "-")),
-                    "tempo_estimado": str(row.get("Tempo Estimado", "-")),
-                    "hora_galpao": str(row.get("Hora Galpão", "-")),
-                    "hora_evento": str(row.get("Hora Evento", "-")),
-                    "data_saida": str(row["Data Saída"]),
-                    "itens": json.loads(row["Itens JSON"])
-                })
-            return eventos
-        except Exception:
-            return []
-    return []
-
-def salvar_eventos(eventos):
-    dados_tabela = []
-    for ev in eventos:
-        dados_tabela.append({
-            "ID": ev["id"],
-            "Evento": ev["evento"],
-            "Responsável": ev["responsavel"],
-            "Endereço": ev.get("endereco", "-"),
-            "Distância": ev.get("distancia", "-"),
-            "Tempo Estimado": ev.get("tempo_estimado", "-"),
-            "Hora Galpão": ev.get("hora_galpao", "-"),
-            "Hora Evento": ev.get("hora_evento", "-"),
-            "Data Saída": ev["data_saida"],
-            "Itens JSON": json.dumps(ev["itens"], ensure_ascii=False)
-        })
-    pd.DataFrame(dados_tabela).to_excel(ARQUIVO_EVENTOS, index=False)
-
-def carregar_visitas():
-    if os.path.exists(ARQUIVO_VISITAS):
-        try:
-            return pd.read_excel(ARQUIVO_VISITAS).to_dict("records")
-        except Exception:
-            return []
-    return []
-
-def salvar_visitas(visitas):
-    pd.DataFrame(visitas).to_excel(ARQUIVO_VISITAS, index=False)
-
-def registrar_historico(acao, evento, responsavel, resumo_itens, observacao="-"):
-    data_hora = datetime.now().strftime('%d/%m/%Y %H:%M')
-    novo_reg = pd.DataFrame([{
-        "Data/Hora": data_hora,
-        "Operação": acao,
-        "Evento / Projeto": evento,
-        "Responsável Técnico": responsavel,
-        "Relação de Material": resumo_itens,
-        "Observações Técnicas": observacao
-    }])
-    if os.path.exists(ARQUIVO_HISTORICO):
-        df_hist = pd.read_excel(ARQUIVO_HISTORICO)
-        df_hist = pd.concat([df_hist, novo_reg], ignore_index=True)
-    else:
-        df_hist = novo_reg
-    df_hist.to_excel(ARQUIVO_HISTORICO, index=False)
 
 def gerar_pdf_checklist(ev):
     buffer = io.BytesIO()
@@ -899,21 +651,21 @@ with k1:
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Total de Unidades no Acervo</div>
-        <div class="kpi-value">{int(df_estoque['Estoque Total'].sum())}</div>
+        <div class="kpi-value">{int(df_estoque['Estoque Total'].sum()) if not df_estoque.empty else 0}</div>
     </div>
     """, unsafe_allow_html=True)
 with k2:
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Unidades Disponíveis (Base)</div>
-        <div class="kpi-value kpi-accent">{int(df_estoque['Disponível'].sum())}</div>
+        <div class="kpi-value kpi-accent">{int(df_estoque['Disponível'].sum()) if not df_estoque.empty else 0}</div>
     </div>
     """, unsafe_allow_html=True)
 with k3:
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Unidades Alocadas (Em Evento)</div>
-        <div class="kpi-value">{int(df_estoque['Em Uso'].sum())}</div>
+        <div class="kpi-value">{int(df_estoque['Em Uso'].sum()) if not df_estoque.empty else 0}</div>
     </div>
     """, unsafe_allow_html=True)
 with k4:
@@ -941,17 +693,18 @@ if menu == "VISÃO GERAL DO ACERVO":
         f_disp = st.selectbox("Status de Alocação:", ["Todos os Itens", "Somente Alocados em Eventos", "Somente Disponíveis na Base"])
 
     df_view = df_estoque.copy()
-    if busca:
-        df_view = df_view[
-            df_view["Equipamento"].str.contains(busca, case=False, na=False) | 
-            df_view["Código"].str.contains(busca, case=False, na=False)
-        ]
-    if f_cat != "Todos":
-        df_view = df_view[df_view["Categoria"] == f_cat]
-    if f_disp == "Somente Alocados em Eventos":
-        df_view = df_view[df_view["Em Uso"] > 0]
-    elif f_disp == "Somente Disponíveis na Base":
-        df_view = df_view[df_view["Disponível"] > 0]
+    if not df_view.empty:
+        if busca:
+            df_view = df_view[
+                df_view["Equipamento"].str.contains(busca, case=False, na=False) | 
+                df_view["Código"].str.contains(busca, case=False, na=False)
+            ]
+        if f_cat != "Todos":
+            df_view = df_view[df_view["Categoria"] == f_cat]
+        if f_disp == "Somente Alocados em Eventos":
+            df_view = df_view[df_view["Em Uso"] > 0]
+        elif f_disp == "Somente Disponíveis na Base":
+            df_view = df_view[df_view["Disponível"] > 0]
 
     st.dataframe(
         df_view,
@@ -967,18 +720,11 @@ if menu == "VISÃO GERAL DO ACERVO":
         }
     )
 
-    with open(ARQUIVO_ESTOQUE, "rb") as f:
-        st.download_button(
-            "EXPORTAR PLANILHA DE ESTOQUE (.XLSX)",
-            f,
-            file_name=f"acervo_acs_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        )
-
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("ZONA ADMINISTRATIVA — REMOVER EQUIPAMENTO DO ACERVO (SENHA EXCLUSIVA)"):
         st.warning("Atenção: A remoção de um item do acervo é permanente e atualizará o inventário geral.")
         
-        opcoes_itens = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()]
+        opcoes_itens = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()] if not df_estoque.empty else []
         item_para_remover = st.selectbox("Selecione o equipamento que deseja remover do acervo:", options=opcoes_itens)
         
         senha_del_item = st.text_input("Digite a Senha Administrativa de Exclusão:", type="password", key="pwd_del_item")
@@ -1069,54 +815,55 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     with col_cat_s:
         cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
 
-    df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy()
+    df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy() if not df_estoque.empty else pd.DataFrame()
     
-    if busca_saida:
-        df_disp_saida = df_disp_saida[
-            df_disp_saida["Equipamento"].str.contains(busca_saida, case=False, na=False) |
-            df_disp_saida["Código"].str.contains(busca_saida, case=False, na=False)
-        ]
-    if cat_saida != "Todos os Setores":
-        df_disp_saida = df_disp_saida[df_disp_saida["Categoria"] == cat_saida]
+    if not df_disp_saida.empty:
+        if busca_saida:
+            df_disp_saida = df_disp_saida[
+                df_disp_saida["Equipamento"].str.contains(busca_saida, case=False, na=False) |
+                df_disp_saida["Código"].str.contains(busca_saida, case=False, na=False)
+            ]
+        if cat_saida != "Todos os Setores":
+            df_disp_saida = df_disp_saida[df_disp_saida["Categoria"] == cat_saida]
 
-    df_disp_saida = df_disp_saida.reset_index(drop=True)
-    df_disp_saida["Qtd Expedir"] = df_disp_saida["Código"].map(lambda c: st.session_state.carrinho_saida.get(str(c).zfill(3), 0))
+        df_disp_saida = df_disp_saida.reset_index(drop=True)
+        df_disp_saida["Qtd Expedir"] = df_disp_saida["Código"].map(lambda c: st.session_state.carrinho_saida.get(str(c).zfill(3), 0))
 
-    def atualizar_selecao_saida():
-        mudancas = st.session_state.get("editor_expedicao_busca", {}).get("edited_rows", {})
-        for idx_str, cols in mudancas.items():
-            idx = int(idx_str)
-            if idx < len(df_disp_saida) and "Qtd Expedir" in cols:
-                cod_item = str(df_disp_saida.iloc[idx]["Código"]).zfill(3)
-                nova_qtd = int(cols["Qtd Expedir"] or 0)
-                if nova_qtd > 0:
-                    st.session_state.carrinho_saida[cod_item] = nova_qtd
-                else:
-                    st.session_state.carrinho_saida.pop(cod_item, None)
+        def atualizar_selecao_saida():
+            mudancas = st.session_state.get("editor_expedicao_busca", {}).get("edited_rows", {})
+            for idx_str, cols in mudancas.items():
+                idx = int(idx_str)
+                if idx < len(df_disp_saida) and "Qtd Expedir" in cols:
+                    cod_item = str(df_disp_saida.iloc[idx]["Código"]).zfill(3)
+                    nova_qtd = int(cols["Qtd Expedir"] or 0)
+                    if nova_qtd > 0:
+                        st.session_state.carrinho_saida[cod_item] = nova_qtd
+                    else:
+                        st.session_state.carrinho_saida.pop(cod_item, None)
 
-    df_disp_saida["Saldo Restante"] = df_disp_saida["Disponível"] - df_disp_saida["Qtd Expedir"]
+        df_disp_saida["Saldo Restante"] = df_disp_saida["Disponível"] - df_disp_saida["Qtd Expedir"]
 
-    st.data_editor(
-        df_disp_saida[["Código", "Categoria", "Equipamento", "Disponível", "Qtd Expedir", "Saldo Restante"]],
-        key="editor_expedicao_busca",
-        on_change=atualizar_selecao_saida,
-        hide_index=True,
-        use_container_width=True,
-        disabled=["Código", "Categoria", "Equipamento", "Disponível", "Saldo Restante"],
-        column_config={
-            "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
-            "Categoria": st.column_config.TextColumn("SETOR", width="small"),
-            "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
-            "Disponível": st.column_config.NumberColumn("SALDO BASE", width="small"),
-            "Qtd Expedir": st.column_config.NumberColumn("QTD A EXPEDIR", min_value=0, step=1, width="small"),
-            "Saldo Restante": st.column_config.NumberColumn("SALDO RESTANTE", width="small")
-        }
-    )
+        st.data_editor(
+            df_disp_saida[["Código", "Categoria", "Equipamento", "Disponível", "Qtd Expedir", "Saldo Restante"]],
+            key="editor_expedicao_busca",
+            on_change=atualizar_selecao_saida,
+            hide_index=True,
+            use_container_width=True,
+            disabled=["Código", "Categoria", "Equipamento", "Disponível", "Saldo Restante"],
+            column_config={
+                "Código": st.column_config.TextColumn("CÓDIGO", width="small"),
+                "Categoria": st.column_config.TextColumn("SETOR", width="small"),
+                "Equipamento": st.column_config.TextColumn("ESPECIFICAÇÃO DO EQUIPAMENTO", width="large"),
+                "Disponível": st.column_config.NumberColumn("SALDO BASE", width="small"),
+                "Qtd Expedir": st.column_config.NumberColumn("QTD A EXPEDIR", min_value=0, step=1, width="small"),
+                "Saldo Restante": st.column_config.NumberColumn("SALDO RESTANTE", width="small")
+            }
+        )
 
     itens_no_carrinho = []
     for cod_sel, qtd_sel in list(st.session_state.carrinho_saida.items()):
         cod_sel_pad = str(cod_sel).zfill(3)
-        linha_est = df_estoque[df_estoque["Código"] == cod_sel_pad]
+        linha_est = df_estoque[df_estoque["Código"] == cod_sel_pad] if not df_estoque.empty else pd.DataFrame()
         if not linha_est.empty and qtd_sel > 0:
             itens_no_carrinho.append({
                 "Código": cod_sel_pad,
@@ -1322,7 +1069,7 @@ elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
     
     try:
-        ultimo_codigo = int(df_estoque["Código"].max())
+        ultimo_codigo = int(df_estoque["Código"].max()) if not df_estoque.empty else 0
         proximo_codigo = str(ultimo_codigo + 1).zfill(3)
     except Exception:
         proximo_codigo = "001"
@@ -1358,83 +1105,72 @@ elif menu == "CADASTRO DE MATERIAIS":
 # =====================================================================
 elif menu == "HISTÓRICO DE OPERAÇÕES":
     st.markdown('<div class="section-header">Auditoria e Histórico de Relatórios de Saída e Retorno</div>', unsafe_allow_html=True)
-    if os.path.exists(ARQUIVO_HISTORICO):
-        df_h = pd.read_excel(ARQUIVO_HISTORICO)
-        if df_h.empty:
-            st.info("Não constam registros históricos de movimentação até o momento.")
-        else:
-            st.dataframe(df_h, hide_index=True, use_container_width=True)
-            
-            col_exp1, col_exp2 = st.columns(2)
-            with col_exp1:
-                txt_hist = gerar_texto_historico(df_h)
-                st.download_button(
-                    "EXPORTAR RELATÓRIOS EM FORMATO TEXTO (.TXT)",
-                    data=txt_hist.encode("utf-8"),
-                    file_name=f"relatorio_saidas_acs_{datetime.now().strftime('%Y%m%d')}.txt",
-                    mime="text/plain",
-                    type="primary",
-                    use_container_width=True
-                )
-            with col_exp2:
-                with open(ARQUIVO_HISTORICO, "rb") as f:
-                    st.download_button(
-                        "EXPORTAR RELATÓRIOS EM EXCEL (.XLSX)",
-                        f,
-                        file_name=f"auditoria_operacoes_acs_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                        use_container_width=True
-                    )
+    try:
+        df_h = conn.read(worksheet="Historico", ttl=0)
+    except Exception:
+        df_h = pd.DataFrame()
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander("ZONA ADMINISTRATIVA — APAGAR RELATÓRIOS DO HISTÓRICO (SENHA EXCLUSIVA)"):
-                st.markdown("Selecione abaixo os relatórios que deseja excluir permanentemente e informe a **Senha Administrativa de Exclusão**:")
-                
-                opcoes_hist = [
-                    f"#{i + 1} | {row['Data/Hora']} | {row['Operação']} - {row['Evento / Projeto']} ({row['Responsável Técnico']})"
-                    for i, row in df_h.iterrows()
-                ]
-                indices_para_apagar = st.multiselect(
-                    "Selecionar relatórios específicos para apagar (ou deixe em branco para usar o botão de limpar tudo):",
-                    options=list(range(len(opcoes_hist))),
-                    format_func=lambda i: opcoes_hist[i]
-                )
-                
-                senha_admin_hist = st.text_input("Senha Administrativa de Exclusão:", type="password", key="pwd_del_hist")
-                
-                col_del1, col_del2 = st.columns(2)
-                with col_del1:
-                    if st.button("APAGAR RELATÓRIOS SELECIONADOS", use_container_width=True):
-                        if senha_admin_hist != SENHA_EXCLUSAO:
-                            st.error("Senha administrativa incorreta. Operação bloqueada.")
-                        elif not indices_para_apagar:
-                            st.warning("Selecione pelo menos um relatório na caixa acima para apagar.")
-                        else:
-                            df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
-                            df_h_novo.to_excel(ARQUIVO_HISTORICO, index=False)
-                            st.success(f"{len(indices_para_apagar)} relatório(s) apagado(s) com sucesso!")
-                            st.rerun()
-                with col_del2:
-                    if st.button("APAGAR TODO O HISTÓRICO DE RELATÓRIOS", use_container_width=True):
-                        if senha_admin_hist != SENHA_EXCLUSAO:
-                            st.error("Senha administrativa incorreta. Operação bloqueada.")
-                        else:
-                            os.remove(ARQUIVO_HISTORICO)
-                            st.success("Todo o histórico de relatórios foi apagado permanentemente!")
-                            st.rerun()
-    else:
+    if df_h.empty:
         st.info("Não constam registros históricos de movimentação até o momento.")
+    else:
+        st.dataframe(df_h, hide_index=True, use_container_width=True)
+        
+        col_exp1, col_exp2 = st.columns(2)
+        with col_exp1:
+            txt_hist = gerar_texto_historico(df_h)
+            st.download_button(
+                "EXPORTAR RELATÓRIOS EM FORMATO TEXTO (.TXT)",
+                data=txt_hist.encode("utf-8"),
+                file_name=f"relatorio_saidas_acs_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                type="primary",
+                use_container_width=True
+            )
+        with col_exp2:
+            csv_data = df_h.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "EXPORTAR RELATÓRIOS EM CSV",
+                data=csv_data,
+                file_name=f"auditoria_operacoes_acs_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("ZONA ADMINISTRATIVA — APAGAR RELATÓRIOS DO HISTÓRICO (SENHA EXCLUSIVA)"):
+            st.markdown("Selecione abaixo os relatórios que deseja excluir permanentemente e informe a **Senha Administrativa de Exclusão**:")
+            
+            opcoes_hist = [
+                f"#{i + 1} | {row['Data/Hora']} | {row['Operação']} - {row['Evento / Projeto']} ({row['Responsável Técnico']})"
+                for i, row in df_h.iterrows()
+            ]
+            indices_para_apagar = st.multiselect(
+                "Selecionar relatórios específicos para apagar:",
+                options=list(range(len(opcoes_hist))),
+                format_func=lambda i: opcoes_hist[i]
+            )
+            
+            senha_admin_hist = st.text_input("Senha Administrativa de Exclusão:", type="password", key="pwd_del_hist")
+            
+            if st.button("APAGAR RELATÓRIOS SELECIONADOS", use_container_width=True):
+                if senha_admin_hist != SENHA_EXCLUSAO:
+                    st.error("Senha administrativa incorreta. Operação bloqueada.")
+                elif not indices_para_apagar:
+                    st.warning("Selecione pelo menos um relatório na caixa acima para apagar.")
+                else:
+                    df_h_novo = df_h.drop(index=indices_para_apagar).reset_index(drop=True)
+                    conn.update(worksheet="Historico", data=df_h_novo)
+                    st.success(f"{len(indices_para_apagar)} relatório(s) apagado(s) com sucesso!")
+                    st.rerun()
 
 # =====================================================================
-# MÓDULO 7: VISITA TÉCNICA (STREAMLIT COM ABAS E PROTEÇÕES)
+# MÓDULO 7: VISITA TÉCNICA
 # =====================================================================
 elif menu == "VISITA TÉCNICA":
     st.markdown('<div class="section-header">Gabarito e Histórico de Visitas Técnicas</div>', unsafe_allow_html=True)
     
     aba_form, aba_hist = st.tabs(["📝 Novo Registro de Visita", "📋 Histórico e Emissão de PDFs"])
     
-    # -----------------------------------------------------------------
-    # ABA 1: FORMULÁRIO (Com Verificação de Duplicidade)
-    # -----------------------------------------------------------------
     with aba_form:
         with st.form("form_visita_tecnica"):
             col_vt1, col_vt2 = st.columns(2)
@@ -1460,11 +1196,10 @@ elif menu == "VISITA TÉCNICA":
                 if not vt_local or not vt_resp:
                     st.error("Preencha pelo menos os campos de Local e Responsável pela Visita.")
                 else:
-                    # Verifica Duplicidade
                     duplicado = False
                     for v in visitas_tecnicas:
-                        if (v.get("Local", "").strip().upper() == vt_local.strip().upper() and 
-                            v.get("Horário/Passagem", "").strip().upper() == vt_dia_horario.strip().upper()):
+                        if (str(v.get("Local", "")).strip().upper() == vt_local.strip().upper() and 
+                            str(v.get("Horário/Passagem", "")).strip().upper() == vt_dia_horario.strip().upper()):
                             duplicado = True
                             break
                     
@@ -1491,12 +1226,9 @@ elif menu == "VISITA TÉCNICA":
                         }
                         visitas_tecnicas.append(nova_visita)
                         salvar_visitas(visitas_tecnicas)
-                        st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso!")
+                        st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso na nuvem!")
                         st.rerun()
 
-    # -----------------------------------------------------------------
-    # ABA 2: HISTÓRICO, PDF E EXCLUSÃO
-    # -----------------------------------------------------------------
     with aba_hist:
         if not visitas_tecnicas:
             st.info("Nenhuma visita técnica registada até o momento.")
@@ -1506,7 +1238,7 @@ elif menu == "VISITA TÉCNICA":
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### ⚙️ Gestão de Visitas Técnicas Registadas")
-            opcoes_vt = [f"{v['Local']} - Data Registro: {v['Data Registro']} (Resp: {v['Responsável']})" for v in visitas_tecnicas]
+            opcoes_vt = [f"{v['Local']} - Data Registro: {v.get('Data Registro', '')} (Resp: {v.get('Responsável', '')})" for v in visitas_tecnicas]
             idx_vt = st.selectbox("Selecione a Visita Técnica:", range(len(opcoes_vt)), format_func=lambda x: opcoes_vt[x])
             vt_selecionada = visitas_tecnicas[idx_vt]
             
