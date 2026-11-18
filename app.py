@@ -136,8 +136,11 @@ def corrigir_ortografia_ptbr(texto, maiusculo=True):
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_estoque():
+    if "df_estoque_memoria" in st.session_state:
+        df_mem = st.session_state.pop("df_estoque_memoria")
+        return df_mem
     try:
-        df = conn.read(worksheet="Estoque", ttl=5)
+        df = conn.read(worksheet="Estoque", ttl=0)
         df = df.dropna(how="all")
         if not df.empty and "Estoque Total" in df.columns:
             df["Código"] = pd.to_numeric(df["Código"], errors="coerce").fillna(0).astype(int).astype(str).str.zfill(3)
@@ -145,13 +148,17 @@ def carregar_estoque():
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
             return df
     except Exception as e:
-        st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Verifique se a planilha está compartilhada como Editor com a conta de serviço. Detalhe: {type(e).__name__} {e}")
+        st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Detalhe: {type(e).__name__} {e}")
     return pd.DataFrame()
 
 def salvar_estoque(df):
     if df is not None and not df.empty:
+        # Reorganiza os códigos sequencialmente (001, 002, ..., N) para bater sempre com o Total de Itens
+        df = df.reset_index(drop=True)
+        df["Código"] = [str(i + 1).zfill(3) for i in range(len(df))]
         conn.update(worksheet="Estoque", data=df)
         st.cache_data.clear()
+        st.session_state["df_estoque_memoria"] = df.copy()
 
 def carregar_eventos():
     try:
