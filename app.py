@@ -43,7 +43,7 @@ CATEGORIAS_OFICIAIS = [
 # CORRETOR ORTOGRÁFICO PORTUGUÊS DO BRASIL (PT-BR)
 # =====================================================================
 def ativar_corretor_navegador_ptbr():
-    """Força o corretor ortográfico nativo do navegador/celular para Português do Brasil (pt-BR)."""
+    """Força o corretor ortográfico nativo do navegador/telemóvel para Português do Brasil (pt-BR)."""
     components.html(
         """
         <script>
@@ -68,7 +68,14 @@ DICIONARIO_PTBR = {
     "VIDEO": "VÍDEO",
     "CAMERA": "CÂMERA",
     "CAMERAS": "CÂMERAS",
-    "TRIPÉ": "TRIPÉ",
+    "PULPITO": "PÚLPITO",
+    "PUPITO": "PÚLPITO",
+    "PÚPITO": "PÚLPITO",
+    "ACRILICO": "ACRÍLICO",
+    "PRATICAVEL": "PRATICÁVEL",
+    "PRATICAVEIS": "PRATICÁVEIS",
+    "PE DE PRATICAVEL": "PÉ DE PRATICÁVEL",
+    "PE DE PRATICÁVEL": "PÉ DE PRATICÁVEL",
     "TRIPE": "TRIPÉ",
     "TRIPES": "TRIPÉS",
     "REGUA": "RÉGUA",
@@ -87,10 +94,8 @@ DICIONARIO_PTBR = {
     "FORCA": "FORÇA",
     "EXTENSAO": "EXTENSÃO",
     "EXTENSOES": "EXTENSÕES",
-    " PADRAO ": " PADRÃO ",
     "MODULO": "MÓDULO",
     "MODULOS": "MÓDULOS",
-    "PAINEL DE LED": "PAINEL DE LED",
     "PROCESSADORA DE VIDEO": "PROCESSADORA DE VÍDEO",
     "CONVERSOR DE VIDEO": "CONVERSOR DE VÍDEO",
     "DISTRIBUIDOR DE VIDEO": "DISTRIBUIDOR DE VÍDEO",
@@ -114,7 +119,6 @@ DICIONARIO_PTBR = {
     "TRIFASICO": "TRIFÁSICO",
     "MONOFASICO": "MONOFÁSICO",
     "BIFASICO": "BIFÁSICO",
-    "GERADOR DE ENERGIA": "GERADOR DE ENERGIA",
     "ACUSTICA": "ACÚSTICA",
     "BAU": "BAÚ"
 }
@@ -137,8 +141,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_estoque():
     if "df_estoque_memoria" in st.session_state:
-        df_mem = st.session_state.pop("df_estoque_memoria")
-        return df_mem
+        return st.session_state.pop("df_estoque_memoria")
     try:
         df = conn.read(worksheet="Estoque", ttl=0)
         df = df.dropna(how="all")
@@ -146,16 +149,16 @@ def carregar_estoque():
             df["Código"] = pd.to_numeric(df["Código"], errors="coerce").fillna(0).astype(int).astype(str).str.zfill(3)
             for col in ["Estoque Total", "Disponível", "Em Uso"]:
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-            return df
+            return df.reset_index(drop=True)
     except Exception as e:
         st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Detalhe: {type(e).__name__} {e}")
     return pd.DataFrame()
 
-def salvar_estoque(df):
+def salvar_estoque(df, renumerar=True):
     if df is not None and not df.empty:
-        # Reorganiza os códigos sequencialmente (001, 002, ..., N) para bater sempre com o Total de Itens
         df = df.reset_index(drop=True)
-        df["Código"] = [str(i + 1).zfill(3) for i in range(len(df))]
+        if renumerar:
+            df["Código"] = [str(i + 1).zfill(3) for i in range(len(df))]
         conn.update(worksheet="Estoque", data=df)
         st.cache_data.clear()
         st.session_state["df_estoque_memoria"] = df.copy()
@@ -337,28 +340,6 @@ st.markdown("""
         font-size: 0.82rem;
         padding: 0.5rem 1rem;
         transition: all 0.2s ease;
-    }
-
-    @media print {
-        [data-testid="stSidebar"], 
-        .no-print, 
-        .stButton, 
-        .stDownloadButton, 
-        [data-testid="stFormSubmitButton"],
-        .stRadio,
-        .stSelectbox,
-        .stTextInput,
-        [data-testid="stExpander"],
-        [data-testid="stTabs"] {
-            display: none !important;
-        }
-        body, .main, .block-container {
-            background-color: #ffffff !important;
-            color: #000000 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -725,13 +706,22 @@ if not st.session_state.autenticado:
                     st.error("Credencial inválida. Verifique a senha informada.")
     st.stop()
 
-# Ativa o corretor ortográfico em Português do Brasil (pt-BR) em todos os campos
 ativar_corretor_navegador_ptbr()
 
 # =====================================================================
-# CARREGAMENTO E MENU SUPERIOR ADAPTATIVO
+# CARREGAMENTO E AUTO-CORREÇÃO DE NUMERAÇÃO SEQUENCIAL
 # =====================================================================
 df_estoque = carregar_estoque()
+
+# Se houver buracos nos códigos (ex: 235 itens mas último código 237), sincroniza automaticamente
+if not df_estoque.empty:
+    codigos_esperados = [str(i + 1).zfill(3) for i in range(len(df_estoque))]
+    nomes_corrigidos = [corrigir_ortografia_ptbr(str(n), maiusculo=True) for n in df_estoque["Equipamento"]]
+    if list(df_estoque["Código"]) != codigos_esperados or list(df_estoque["Equipamento"]) != nomes_corrigidos:
+        df_estoque["Código"] = codigos_esperados
+        df_estoque["Equipamento"] = nomes_corrigidos
+        salvar_estoque(df_estoque, renumerar=True)
+
 eventos_ativos = carregar_eventos()
 visitas_tecnicas = carregar_visitas()
 
@@ -853,8 +843,34 @@ if menu == "VISÃO GERAL DO ACERVO":
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("✏️ EDITAR EQUIPAMENTO / ALTERAR SETOR OU QUANTIDADE"):
+        opcoes_edicao = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()] if not df_estoque.empty else []
+        item_para_editar = st.selectbox("Selecione o equipamento que deseja editar:", options=opcoes_edicao, key="sel_edit_item")
+        if item_para_editar:
+            cod_ed = item_para_editar.split("|")[0].replace("Cód:", "").strip().zfill(3)
+            linha_ed = df_estoque[df_estoque["Código"] == cod_ed].iloc[0]
+            col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
+            with col_ed1:
+                novo_nome_ed = st.text_input("Especificação do Equipamento:", value=linha_ed["Equipamento"], key="txt_edit_nome")
+            with col_ed2:
+                idx_cat = CATEGORIAS_OFICIAIS.index(linha_ed["Categoria"]) if linha_ed["Categoria"] in CATEGORIAS_OFICIAIS else 0
+                nova_cat_ed = st.selectbox("Departamento / Setor:", CATEGORIAS_OFICIAIS, index=idx_cat, key="sel_edit_cat")
+            with col_ed3:
+                nova_qtd_ed = st.number_input("Acervo Total:", min_value=int(linha_ed["Em Uso"]), value=int(linha_ed["Estoque Total"]), step=1, key="num_edit_qtd")
+            
+            if st.button("SALVAR ALTERAÇÕES DO EQUIPAMENTO", type="primary"):
+                nome_ed_limpo = corrigir_ortografia_ptbr(novo_nome_ed, maiusculo=True)
+                em_uso_atual = int(linha_ed["Em Uso"])
+                df_estoque.loc[df_estoque["Código"] == cod_ed, "Equipamento"] = nome_ed_limpo
+                df_estoque.loc[df_estoque["Código"] == cod_ed, "Categoria"] = nova_cat_ed
+                df_estoque.loc[df_estoque["Código"] == cod_ed, "Estoque Total"] = int(nova_qtd_ed)
+                df_estoque.loc[df_estoque["Código"] == cod_ed, "Disponível"] = int(nova_qtd_ed) - em_uso_atual
+                salvar_estoque(df_estoque, renumerar=True)
+                st.success(f"Equipamento '{nome_ed_limpo}' atualizado com sucesso!")
+                st.rerun()
+
     with st.expander("ZONA ADMINISTRATIVA — REMOVER EQUIPAMENTO DO ACERVO (SENHA EXCLUSIVA)"):
-        st.warning("Atenção: A remoção de um item do acervo é permanente e atualizará o inventário geral.")
+        st.warning("Atenção: A remoção de um item do acervo é permanente e renumerará os códigos seguintes para manter a sequência exata.")
         
         opcoes_itens = [f"Cód: {row['Código']} | {row['Equipamento']} ({row['Categoria']})" for _, row in df_estoque.iterrows()] if not df_estoque.empty else []
         item_para_remover = st.selectbox("Selecione o equipamento que deseja remover do acervo:", options=opcoes_itens)
@@ -869,8 +885,8 @@ if menu == "VISÃO GERAL DO ACERVO":
             else:
                 cod_extraido = item_para_remover.split("|")[0].replace("Cód:", "").strip().zfill(3)
                 df_estoque = df_estoque[df_estoque["Código"] != cod_extraido].reset_index(drop=True)
-                salvar_estoque(df_estoque)
-                st.success(f"Equipamento com código {cod_extraido} removido permanentemente do acervo com sucesso!")
+                salvar_estoque(df_estoque, renumerar=True)
+                st.success(f"Equipamento removido e numeração do acervo sincronizada ({len(df_estoque)} itens)!")
                 st.rerun()
 
 # =====================================================================
@@ -1045,7 +1061,7 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                     })
                     resumo_log.append(f"{qtd_saindo} un - {nome_eq}")
 
-                salvar_estoque(df_estoque)
+                salvar_estoque(df_estoque, renumerar=False)
                 
                 tempo_str = formatar_tempo(tempo_min_calc) if tempo_min_calc is not None else "A calcular"
                 nome_ev_corrigido = corrigir_ortografia_ptbr(nome_evento, maiusculo=True)
@@ -1116,7 +1132,7 @@ elif menu == "EMISSÃO DE CHECKLIST":
                         qtd_i = int(item["Qtd"])
                         df_estoque.loc[df_estoque["Código"] == cod_i, "Disponível"] += qtd_i
                         df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"] = max(0, int(df_estoque.loc[df_estoque["Código"] == cod_i, "Em Uso"].values[0]) - qtd_i)
-                    salvar_estoque(df_estoque)
+                    salvar_estoque(df_estoque, renumerar=False)
                     eventos_ativos.pop(idx_imp)
                     salvar_eventos(eventos_ativos)
                     st.success("Checklist apagado e quantidades estornadas ao estoque com sucesso.")
@@ -1185,7 +1201,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                     if row["Laudo / Ocorrência"].strip().upper() not in ["SEM AVARIAS", "OK"]:
                         avarias_lista.append(f"{row['Equipamento']}: {row['Laudo / Ocorrência']}")
 
-                salvar_estoque(df_estoque)
+                salvar_estoque(df_estoque, renumerar=False)
                 eventos_ativos.pop(ev_selecionado_idx)
                 salvar_eventos(eventos_ativos)
                 
@@ -1202,18 +1218,14 @@ elif menu == "RETORNO E CONFERÊNCIA":
 # =====================================================================
 elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
-    st.caption("🇧🇷 Corretor ortográfico Português do Brasil (PT-BR) ativo — acentuação técnica padronizada automaticamente ao salvar.")
+    st.caption("🇧🇷 Corretor ortográfico Português do Brasil (PT-BR) ativo — acentuação e numeração sequencial sincronizadas automaticamente.")
     
-    try:
-        ultimo_codigo = int(df_estoque["Código"].astype(int).max()) if not df_estoque.empty else 0
-        proximo_codigo = str(ultimo_codigo + 1).zfill(3)
-    except Exception:
-        proximo_codigo = "001"
+    proximo_codigo = str(len(df_estoque) + 1).zfill(3)
 
     with st.form("form_novo_item"):
         c1, c2 = st.columns(2)
         with c1:
-            st.text_input("Código Patrimonial Gerado Automaticamente:", value=proximo_codigo, disabled=True)
+            st.text_input("Código Patrimonial Sequencial:", value=proximo_codigo, disabled=True)
             n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:", placeholder="Ex: Processadora de Vídeo VX4S, Câmera Sony...")
         with c2:
             n_cat = st.selectbox("Departamento Técnico:", CATEGORIAS_OFICIAIS)
@@ -1231,8 +1243,8 @@ elif menu == "CADASTRO DE MATERIAIS":
                     "Em Uso": 0
                 }])
                 df_estoque = pd.concat([df_estoque, novo_df], ignore_index=True)
-                salvar_estoque(df_estoque)
-                st.success(f"Item '{nome_corrigido}' registrado com sucesso no setor '{n_cat}' com o código {proximo_codigo}!")
+                salvar_estoque(df_estoque, renumerar=True)
+                st.success(f"Item '{nome_corrigido}' registrado com sucesso no setor '{n_cat}' com o código {proximo_codigo} (Total: {len(df_estoque)} itens)!")
                 st.rerun()
             else:
                 st.error("Preencha a Descrição Técnica do equipamento.")
