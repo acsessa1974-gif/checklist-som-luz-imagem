@@ -1,9 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import os
 import json
 import io
+import re
 import requests
 from datetime import datetime, time
 
@@ -21,10 +23,112 @@ st.set_page_config(
 )
 
 # =====================================================================
-# CONFIGURAÇÃO DE SENHAS DO SISTEMA
+# CONFIGURAÇÃO DE SENHAS E CATEGORIAS DO SISTEMA
 # =====================================================================
 SENHA_ACESSO = "acs123"       # Senha padrão para abrir o sistema
 SENHA_EXCLUSAO = "acsadmin"   # Senha exclusiva para apagar relatórios e itens
+
+CATEGORIAS_OFICIAIS = [
+    "Áudio",
+    "Backline",
+    "Luz",
+    "Vídeo",
+    "Estruturas",
+    "Informática",
+    "Acessórios",
+    "Equipamentos com Defeito"
+]
+
+# =====================================================================
+# CORRETOR ORTOGRÁFICO PORTUGUÊS DO BRASIL (PT-BR)
+# =====================================================================
+def ativar_corretor_navegador_ptbr():
+    """Força o corretor ortográfico nativo do navegador/celular para Português do Brasil (pt-BR)."""
+    components.html(
+        """
+        <script>
+        const doc = window.parent.document;
+        doc.documentElement.lang = 'pt-BR';
+        const aplicarPtBr = () => {
+            doc.querySelectorAll('input[type="text"], textarea').forEach(el => {
+                el.setAttribute('spellcheck', 'true');
+                el.setAttribute('lang', 'pt-BR');
+            });
+        };
+        aplicarPtBr();
+        new MutationObserver(aplicarPtBr).observe(doc.body, { childList: true, subtree: true });
+        </script>
+        """,
+        height=0,
+        width=0
+    )
+
+DICIONARIO_PTBR = {
+    "AUDIO": "ÁUDIO",
+    "VIDEO": "VÍDEO",
+    "CAMERA": "CÂMERA",
+    "CAMERAS": "CÂMERAS",
+    "TRIPÉ": "TRIPÉ",
+    "TRIPE": "TRIPÉ",
+    "TRIPES": "TRIPÉS",
+    "REGUA": "RÉGUA",
+    "REGUAS": "RÉGUAS",
+    "ENERGIA ELETRICA": "ENERGIA ELÉTRICA",
+    "ELETRICA": "ELÉTRICA",
+    "ELETRICO": "ELÉTRICO",
+    "BASTAO": "BASTÃO",
+    "CONEXAO": "CONEXÃO",
+    "CONEXOES": "CONEXÕES",
+    "TRANSMISSAO": "TRANSMISSÃO",
+    "ILUMINACAO": "ILUMINAÇÃO",
+    "SONORIZACAO": "SONORIZAÇÃO",
+    "PROJETOR DE VIDEO": "PROJETOR DE VÍDEO",
+    "CABO DE FORCA": "CABO DE FORÇA",
+    "FORCA": "FORÇA",
+    "EXTENSAO": "EXTENSÃO",
+    "EXTENSOES": "EXTENSÕES",
+    " PADRAO ": " PADRÃO ",
+    "MODULO": "MÓDULO",
+    "MODULOS": "MÓDULOS",
+    "PAINEL DE LED": "PAINEL DE LED",
+    "PROCESSADORA DE VIDEO": "PROCESSADORA DE VÍDEO",
+    "CONVERSOR DE VIDEO": "CONVERSOR DE VÍDEO",
+    "DISTRIBUIDOR DE VIDEO": "DISTRIBUIDOR DE VÍDEO",
+    "MESA DE CORTE DE VIDEO": "MESA DE CORTE DE VÍDEO",
+    "INFORMATICA": "INFORMÁTICA",
+    "ACESSORIOS": "ACESSÓRIOS",
+    "ACESSORIO": "ACESSÓRIO",
+    "TECNICO": "TÉCNICO",
+    "TECNICA": "TÉCNICA",
+    "OPERACAO": "OPERAÇÃO",
+    "OBSERVACAO": "OBSERVAÇÃO",
+    "OBSERVACOES": "OBSERVAÇÕES",
+    "CONVENCAO": "CONVENÇÃO",
+    "GALPAO": "GALPÃO",
+    "SAIDA": "SAÍDA",
+    "DISTANCIA": "DISTÂNCIA",
+    "HORARIO": "HORÁRIO",
+    "PRE MONTAGEM": "PRÉ-MONTAGEM",
+    "PE DIREITO": "PÉ-DIREITO",
+    "CAMINHAO": "CAMINHÃO",
+    "TRIFASICO": "TRIFÁSICO",
+    "MONOFASICO": "MONOFÁSICO",
+    "BIFASICO": "BIFÁSICO",
+    "GERADOR DE ENERGIA": "GERADOR DE ENERGIA",
+    "ACUSTICA": "ACÚSTICA",
+    "BAU": "BAÚ"
+}
+
+def corrigir_ortografia_ptbr(texto, maiusculo=True):
+    """Corrige automaticamente acentuação e termos técnicos em Português do Brasil."""
+    if not texto or not isinstance(texto, str):
+        return ""
+    limpo = " ".join(texto.strip().split())
+    texto_upper = limpo.upper()
+    for errado, certo in DICIONARIO_PTBR.items():
+        padrao = r'\b' + re.escape(errado.strip()) + r'\b'
+        texto_upper = re.sub(padrao, certo.strip(), texto_upper)
+    return texto_upper if maiusculo else texto_upper.capitalize()
 
 # =====================================================================
 # CONEXÃO COM O GOOGLE SHEETS
@@ -41,7 +145,7 @@ def carregar_estoque():
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
             return df
     except Exception as e:
-        st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Verifique se a planilha está compartilhada como Editor com a conta de serviço. Detalhe: {e}")
+        st.error(f"⚠️ Erro ao ler a aba 'Estoque' no Google Sheets. Verifique se a planilha está compartilhada como Editor com a conta de serviço. Detalhe: {type(e).__name__} {e}")
     return pd.DataFrame()
 
 def salvar_estoque(df):
@@ -614,6 +718,9 @@ if not st.session_state.autenticado:
                     st.error("Credencial inválida. Verifique a senha informada.")
     st.stop()
 
+# Ativa o corretor ortográfico em Português do Brasil (pt-BR) em todos os campos
+ativar_corretor_navegador_ptbr()
+
 # =====================================================================
 # CARREGAMENTO E MENU SUPERIOR ADAPTATIVO
 # =====================================================================
@@ -706,7 +813,7 @@ if menu == "VISÃO GERAL DO ACERVO":
     with c1:
         busca = st.text_input("Pesquisar equipamento por descrição ou código:", placeholder="Digite o modelo, marca ou código...")
     with c2:
-        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos", "Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
+        f_cat = st.selectbox("Filtrar por Departamento:", ["Todos"] + CATEGORIAS_OFICIAIS)
     with c3:
         f_disp = st.selectbox("Status de Alocação:", ["Todos os Itens", "Somente Alocados em Eventos", "Somente Disponíveis na Base"])
 
@@ -764,7 +871,7 @@ if menu == "VISÃO GERAL DO ACERVO":
 # =====================================================================
 elif menu == "EXPEDIÇÃO (SAÍDA)":
     st.markdown('<div class="section-header">Registro de Expedição e Alocação por Evento (Kits e Itens)</div>', unsafe_allow_html=True)
-    st.caption(f"📍 Origem da Carga (Galpão A.C.S.): {ENDERECO_GALPAO}")
+    st.caption(f"📍 Origem da Carga (Galpão A.C.S.): {ENDERECO_GALPAO} | 🇧🇷 Corretor Ortográfico PT-BR Ativo")
 
     col_ev1, col_ev2 = st.columns(2)
     with col_ev1:
@@ -828,10 +935,10 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
     with col_busca_s:
         busca_saida = st.text_input(
             "Pesquisar equipamento para adicionar à saída:",
-            placeholder="Digite qualquer parte do nome ou código (ex: SM58, Line Array, XLR, Moving)..."
+            placeholder="Digite qualquer parte do nome ou código (ex: SM58, Painel de LED, XLR, Moving)..."
         )
     with col_cat_s:
-        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores", "Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
+        cat_saida = st.selectbox("Filtrar por Setor:", ["Todos os Setores"] + CATEGORIAS_OFICIAIS)
 
     df_disp_saida = df_estoque[df_estoque["Disponível"] > 0][["Código", "Categoria", "Equipamento", "Disponível"]].copy() if not df_estoque.empty else pd.DataFrame()
     
@@ -934,12 +1041,15 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 salvar_estoque(df_estoque)
                 
                 tempo_str = formatar_tempo(tempo_min_calc) if tempo_min_calc is not None else "A calcular"
+                nome_ev_corrigido = corrigir_ortografia_ptbr(nome_evento, maiusculo=True)
+                resp_corrigido = corrigir_ortografia_ptbr(tecnico_resp, maiusculo=True)
+                end_corrigido = corrigir_ortografia_ptbr(endereco_evento, maiusculo=True) if endereco_evento else "NÃO INFORMADO"
                 
                 novo_evento = {
                     "id": datetime.now().strftime("%Y%m%d%H%M%S"),
-                    "evento": nome_evento.upper(),
-                    "responsavel": tecnico_resp.upper(),
-                    "endereco": endereco_evento.upper() if endereco_evento else "NÃO INFORMADO",
+                    "evento": nome_ev_corrigido,
+                    "responsavel": resp_corrigido,
+                    "endereco": end_corrigido,
                     "distancia": f"{dist_calc} km" if dist_calc else "A calcular",
                     "tempo_estimado": tempo_str,
                     "hora_galpao": hora_galpao.strftime("%H:%M"),
@@ -950,9 +1060,9 @@ elif menu == "EXPEDIÇÃO (SAÍDA)":
                 eventos_ativos.append(novo_evento)
                 salvar_eventos(eventos_ativos)
                 
-                registrar_historico("EXPEDIÇÃO", nome_evento.upper(), tecnico_resp.upper(), "; ".join(resumo_log), f"Destino: {endereco_evento} | Tempo est.: {tempo_str}")
+                registrar_historico("EXPEDIÇÃO", nome_ev_corrigido, resp_corrigido, "; ".join(resumo_log), f"Destino: {end_corrigido} | Tempo est.: {tempo_str}")
                 st.session_state.carrinho_saida = {}
-                st.success(f"Operação registrada com sucesso para o evento '{nome_evento.upper()}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
+                st.success(f"Operação registrada com sucesso para o evento '{nome_ev_corrigido}'. Acesse 'EMISSÃO DE CHECKLIST' para descarregar o PDF profissional.")
                 st.rerun()
 
 # =====================================================================
@@ -1076,7 +1186,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
                 if avarias_lista:
                     obs_final += " | OCORRÊNCIAS: " + "; ".join(avarias_lista)
 
-                registrar_historico("RETORNO", ev_atual["evento"], conferente_volta.upper(), "; ".join(resumo_volta), obs_final)
+                registrar_historico("RETORNO", ev_atual["evento"], corrigir_ortografia_ptbr(conferente_volta, maiusculo=True), "; ".join(resumo_volta), obs_final)
                 st.success(f"Recebimento do evento '{ev_atual['evento']}' homologado com sucesso.")
                 st.rerun()
 
@@ -1085,6 +1195,7 @@ elif menu == "RETORNO E CONFERÊNCIA":
 # =====================================================================
 elif menu == "CADASTRO DE MATERIAIS":
     st.markdown('<div class="section-header">Inclusão de Novos Equipamentos no Patrimônio</div>', unsafe_allow_html=True)
+    st.caption("🇧🇷 Corretor ortográfico Português do Brasil (PT-BR) ativo — acentuação técnica padronizada automaticamente ao salvar.")
     
     try:
         ultimo_codigo = int(df_estoque["Código"].astype(int).max()) if not df_estoque.empty else 0
@@ -1096,24 +1207,25 @@ elif menu == "CADASTRO DE MATERIAIS":
         c1, c2 = st.columns(2)
         with c1:
             st.text_input("Código Patrimonial Gerado Automaticamente:", value=proximo_codigo, disabled=True)
-            n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:")
+            n_nome = st.text_input("Descrição Técnica / Modelo do Equipamento:", placeholder="Ex: Processadora de Vídeo VX4S, Câmera Sony...")
         with c2:
-            n_cat = st.selectbox("Departamento Técnico:", ["Áudio", "Backline", "Luz", "Estruturas", "Informática", "Acessórios", "Equipamentos com Defeito"])
+            n_cat = st.selectbox("Departamento Técnico:", CATEGORIAS_OFICIAIS)
             n_qtd = st.number_input("Quantidade Total Incorporada:", min_value=1, value=1, step=1)
         
         if st.form_submit_button("REGISTRAR EQUIPAMENTO NO ACERVO"):
             if n_nome:
+                nome_corrigido = corrigir_ortografia_ptbr(n_nome, maiusculo=True)
                 novo_df = pd.DataFrame([{
                     "Código": proximo_codigo,
                     "Categoria": n_cat,
-                    "Equipamento": n_nome.strip().upper(),
+                    "Equipamento": nome_corrigido,
                     "Estoque Total": int(n_qtd),
                     "Disponível": int(n_qtd),
                     "Em Uso": 0
                 }])
                 df_estoque = pd.concat([df_estoque, novo_df], ignore_index=True)
                 salvar_estoque(df_estoque)
-                st.success(f"Item '{n_nome.upper()}' registrado com sucesso com o código {proximo_codigo}!")
+                st.success(f"Item '{nome_corrigido}' registrado com sucesso no setor '{n_cat}' com o código {proximo_codigo}!")
                 st.rerun()
             else:
                 st.error("Preencha a Descrição Técnica do equipamento.")
@@ -1188,6 +1300,7 @@ elif menu == "HISTÓRICO DE OPERAÇÕES":
 # =====================================================================
 elif menu == "VISITA TÉCNICA":
     st.markdown('<div class="section-header">Gabarito e Histórico de Visitas Técnicas</div>', unsafe_allow_html=True)
+    st.caption("🇧🇷 Corretor ortográfico Português do Brasil (PT-BR) ativo em todos os campos do relatório.")
     
     aba_form, aba_hist = st.tabs(["📝 Novo Registro de Visita", "📋 Histórico e Emissão de PDFs"])
     
@@ -1216,20 +1329,22 @@ elif menu == "VISITA TÉCNICA":
                 if not vt_local or not vt_resp:
                     st.error("Preencha pelo menos os campos de Local e Responsável pela Visita.")
                 else:
+                    local_corrigido = corrigir_ortografia_ptbr(vt_local, maiusculo=True)
+                    resp_vt_corrigido = corrigir_ortografia_ptbr(vt_resp, maiusculo=True)
                     duplicado = False
                     for v in visitas_tecnicas:
-                        if (str(v.get("Local", "")).strip().upper() == vt_local.strip().upper() and 
+                        if (str(v.get("Local", "")).strip().upper() == local_corrigido and 
                             str(v.get("Horário/Passagem", "")).strip().upper() == vt_dia_horario.strip().upper()):
                             duplicado = True
                             break
                     
                     if duplicado:
-                        st.warning(f"⚠️ Já existe uma visita técnica registada para o local '{vt_local.upper()}' com este mesmo horário. Ação cancelada para evitar duplicidade.")
+                        st.warning(f"⚠️ Já existe uma visita técnica registada para o local '{local_corrigido}' com este mesmo horário. Ação cancelada para evitar duplicidade.")
                     else:
                         nova_visita = {
                             "Data Registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "Responsável": vt_resp.upper(),
-                            "Local": vt_local.upper(),
+                            "Responsável": resp_vt_corrigido,
+                            "Local": local_corrigido,
                             "Horário/Passagem": vt_dia_horario,
                             "Elétrica": vt_eletrica,
                             "Pré Montagem": vt_pre_montagem,
@@ -1246,7 +1361,7 @@ elif menu == "VISITA TÉCNICA":
                         }
                         visitas_tecnicas.append(nova_visita)
                         salvar_visitas(visitas_tecnicas)
-                        st.success(f"Visita técnica para '{vt_local.upper()}' salva com sucesso na nuvem!")
+                        st.success(f"Visita técnica para '{local_corrigido}' salva com sucesso na nuvem!")
                         st.rerun()
 
     with aba_hist:
